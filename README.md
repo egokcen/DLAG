@@ -1,6 +1,8 @@
 ## DLAG (Delayed Latents Across Groups)
 
-[license](LICENSE.md)
+[![][license-img]][license-url]
+[license-img]: https://img.shields.io/github/license/mashape/apistatus.svg
+[license-url]: https://github.com/egokcen/DLAG/blob/master/LICENSE.md
 
 This project contains a Matlab implementation of DLAG, a dimensionality reduction framework for dissecting interactions between populations of neurons.
 
