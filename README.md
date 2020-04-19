@@ -21,11 +21,7 @@ portion of this code for your own purposes.
 
 ## Installation
 
-Simply download this project or clone to a local directory. For example, in the command line (assuming you have Git already installed on your computer), change the current working directory to the location where you want the cloned directory to be made. Run
-```
-$ git clone https://github.com/egokcen/DLAG
-```
-Then, run Matlab.
+Simply download and extract the [current release](https://github.com/egokcen/DLAG/releases/tag/v1.1.0) of this project to your desired local directory.
 
 ## Project wiki
 
