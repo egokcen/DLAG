@@ -1,6 +1,7 @@
 ## DLAG (Delayed Latents Across Groups)
 
 [![][license-img]][license-url]
+
 [license-img]: https://img.shields.io/github/license/mashape/apistatus.svg
 [license-url]: https://github.com/egokcen/DLAG/blob/master/LICENSE.md
 
@@ -20,7 +21,7 @@ portion of this code for your own purposes.
 
 ## Installation
 
-Simply download this project or clone to a local directory. For example, in the command line, change the current working directory to the location where you want the cloned directory to be made. Run
+Simply download this project or clone to a local directory. For example, in the command line (assuming you have Git already installed on your computer), change the current working directory to the location where you want the cloned directory to be made. Run
 ```
 $ git clone https://github.com/egokcen/DLAG
 ```
