@@ -1,6 +1,6 @@
 ## DLAG (Delayed Latents Across Groups)
 
-(LICENSE.md)
+(./LICENSE.md)
 
 This project contains a Matlab implementation of DLAG, a dimensionality reduction framework for dissecting interactions between populations of neurons.
 
@@ -34,8 +34,8 @@ For questions, please contact Evren Gokcen at egokcen@cmu.edu
 ## Acknowledgments
 
 This DLAG implementation started with base code (which has been significantly
-changed) from the following source:
-https://github.com/karts25/NeuralTraj
+changed) from the following source: https://github.com/karts25/NeuralTraj
+
 Code in this repo implements GPFA and TD-GPFA, which are described in
 the following references:
 
