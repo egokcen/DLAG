@@ -75,6 +75,12 @@ function result = fit_pcca(runIdx, dat, varargin)
 %                    using multiple cores. (default: false)
 %     numWorkers  -- int; Number of cores to use, if using the parallelize
 %                    option. (default: 4)
+%     randomSeed  -- int (or struct); Specify a seed (or full settings) for
+%                    the random number generator, to aid reproducibility.
+%                    For example, specifying the same seed for different 
+%                    runs will generate the same cross-validation folds. 
+%                    If empty ([]), seed the random number generator with 
+%                    the current time (rng('shuffle')). (default: 0)
 %
 % Outputs:
 %
@@ -86,6 +92,9 @@ function result = fit_pcca(runIdx, dat, varargin)
 %               fname       -- string; path to file where variables are 
 %                              stored
 %               method      -- string; method that was used ('pcca')
+%               rngSettings -- structure with the random number generator 
+%                              settings used during run time. Includes 
+%                              fields 'Type', 'Seed', and 'State'.
 %               xDim        -- int; number of across-group dimensions
 %               yDims       -- (1 x numGroups) array; observation
 %                              dimensionalities of each group
@@ -137,6 +146,7 @@ function result = fit_pcca(runIdx, dat, varargin)
 %
 % Revision history:
 %     11 Mar 2020 -- Initial full revision.
+%     07 May 2020 -- Added option to seed random number generator.
 
 % Specify defaults for optional arguments
 datFormat            = 'seq';
@@ -149,6 +159,7 @@ xDims                = [3];
 rGroups              = [1 2];
 parallelize          = false;
 numWorkers           = 4;
+randomSeed           = 0;
 extraOpts            = assignopts(who, varargin);
 numGroups            = length(yDims); % Number of groups (areas)
 
@@ -183,8 +194,17 @@ end
 N    = length(seq);      % Number of trials
 cvf_list = 0:numFolds;   % Cross-validation folds, including training on all data
 
+% Seed the random number generator, for reproducibility
+if ~isempty(randomSeed)
+    rng(randomSeed);
+else
+    % If no seed given, then use the current time to seed the generator
+    rng('shuffle');
+end
+% Save the random number generator settings, for reproducibility
+rngSettings = rng;
+
 % Set cross-validation folds (crossvalind randomly generates indices)
-rng('shuffle');
 if numFolds > 0
     val_indices = crossvalind('Kfold', N, numFolds);
 end
@@ -248,7 +268,7 @@ if parallelize
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...
             'rGroups', rGroups, 'parallelize', parallelize, ...
             'hasSpikesBool', cvf_params(i).hasSpikesBool, 'binWidth', binWidth,...
-            extraOpts{:});                
+            'rngSettings', rngSettings, extraOpts{:});                
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
@@ -263,7 +283,7 @@ else % Otherwise, continue without settup up parallelization
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...
             'rGroups', rGroups, 'parallelize', parallelize, ...
             'hasSpikesBool', cvf_params(i).hasSpikesBool, 'binWidth', binWidth,...
-            extraOpts{:});        
+            'rngSettings', rngSettings, extraOpts{:});        
     end
 end
 

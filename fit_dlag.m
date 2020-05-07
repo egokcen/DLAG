@@ -87,6 +87,12 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                    using multiple cores. (default: false)
 %     numWorkers  -- int; Number of cores to use, if using the parallelize
 %                    option. (default: 4)
+%     randomSeed  -- int (or struct); Specify a seed (or full settings) for
+%                    the random number generator, to aid reproducibility.
+%                    For example, specifying the same seed for different 
+%                    runs will generate the same cross-validation folds. 
+%                    If empty ([]), seed the random number generator with 
+%                    the current time (rng('shuffle')). (default: 0)
 %
 % Outputs:
 %
@@ -99,6 +105,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                              stored
 %               method      -- string; method that was used (for now, just
 %                              'dlag')
+%               rngSettings -- structure with the random number generator 
+%                              settings used during run time. Includes 
+%                              fields 'Type', 'Seed', and 'State'.
 %               init_method -- string; method used to initialize DLAG
 %                              ('pCCA', 'params')
 %               xDim_across -- int; number of across-group dimensions
@@ -195,6 +204,7 @@ function result = fit_dlag(runIdx, dat, varargin)
 %
 % Revision history:
 %     11 Mar 2020 -- Initial full revision.
+%     07 May 2020 -- Added option to seed random number generator.
 
 % Specify defaults for optional arguments
 datFormat            = 'seq';
@@ -207,6 +217,7 @@ xDims_across         = [3];
 xDims_within         = {[1]};
 parallelize          = false;
 numWorkers           = 4;
+randomSeed           = 0;
 extraOpts            = assignopts(who, varargin);
 numGroups            = length(yDims); % Number of groups (areas)
 
@@ -241,8 +252,17 @@ end
 N    = length(seq);      % Number of trials
 cvf_list = 0:numFolds;   % Cross-validation folds, including training on all data
 
+% Seed the random number generator, for reproducibility
+if ~isempty(randomSeed)
+    rng(randomSeed);
+else
+    % If no seed given, then use the current time to seed the generator
+    rng('shuffle');
+end
+% Save the random number generator settings, for reproducibility
+rngSettings = rng;
+
 % Set cross-validation folds (crossvalind randomly generates indices)
-rng('shuffle');
 if numFolds > 0
     val_indices = crossvalind('Kfold', N, numFolds);
 end
@@ -350,7 +370,7 @@ if parallelize
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within,...
             'yDims', yDims, 'cvf', cvf_params(i).cvf, 'parallelize', parallelize, ...
             'hasSpikesBool', cv_data(cvf_params(i).cvf+1).hasSpikesBool, 'binWidth', binWidth,...
-            extraOpts{:});                
+            'rngSettings', rngSettings, extraOpts{:});                
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
@@ -365,7 +385,7 @@ else % Otherwise, continue without settup up parallelization
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within, ...
             'yDims', yDims, 'cvf', cvf_params(i).cvf, 'parallelize', parallelize, ...
             'hasSpikesBool', cv_data(cvf_params(i).cvf+1).hasSpikesBool, 'binWidth', binWidth,...
-            extraOpts{:});        
+            'rngSettings', rngSettings, extraOpts{:});        
     end
 end
 

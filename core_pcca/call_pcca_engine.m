@@ -40,6 +40,9 @@ function result = call_pcca_engine(fname,seqTrain,seqTest,varargin)
 %     overwriteExisting -- logical; Set to true to overwrite existing
 %                          results files, if their names match the the ones
 %                          created during this run. (default: true)
+%     rngSettings -- structure with the random number generator 
+%                    settings used during run time. Includes 
+%                    fields 'Type', 'Seed', and 'State'.
 %
 % Outputs:
 %
@@ -52,6 +55,7 @@ function result = call_pcca_engine(fname,seqTrain,seqTest,varargin)
 %
 % Revision history:
 %     17 Mar 2020 -- Initial full revision.
+%     07 May 2020 -- Save random number generator settings.
 
 method        = 'pcca';
 binWidth      = 20; % in msec
@@ -60,6 +64,7 @@ yDims         = [];
 xDim          = 3;
 hasSpikesBool = [];
 overwriteExisting = true;
+rngSettings   = [];
 extraOpts     = assignopts(who, varargin);
 
 extraOpts = {extraOpts{:},'cvf',cvf}; % cvf will continue to get passed on
@@ -83,7 +88,7 @@ if isequal(method,'pcca')
 end
 
 if exist([fname '.mat'], 'file')
-    save(fname, 'method', 'cvf', 'hasSpikesBool', '-append');
+    save(fname, 'method', 'cvf', 'hasSpikesBool', 'rngSettings', '-append');
 end
 
 % Results are saved to a file.
