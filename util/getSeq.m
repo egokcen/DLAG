@@ -25,11 +25,11 @@ function seq = getSeq(dat, binWidth, varargin)
 % OPTIONAL ARGUMENTS:
 %
 % useSqrt     - logical specifying whether or not to use square-root transform
-%               on spike counts (default: true)
+%               on spike counts (default: false)
 %
 % @ 2009 Byron Yu -- byronyu@stanford.edu
 
-  useSqrt = true;
+  useSqrt = false;
   assignopts(who, varargin);
 
   seq = [];
