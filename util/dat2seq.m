@@ -29,8 +29,8 @@ function seq = dat2seq(dat, varargin)
     extraOpts = assignopts(who, varargin);
     [D, T, N] = size(dat);
     for n = 1:N
-        seq.seq(n).trialId = n;
-        seq.seq(n).T = T;
-        seq.seq(n).(datafield) = dat(:,:,n);
+        seq(n).trialId = n;
+        seq(n).T = T;
+        seq(n).(datafield) = dat(:,:,n);
     end
 end

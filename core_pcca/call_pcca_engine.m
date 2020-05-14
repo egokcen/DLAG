@@ -34,9 +34,6 @@ function result = call_pcca_engine(fname,seqTrain,seqTest,varargin)
 %     yDims    -- (1 x numGroups) array; Specify the number features 
 %                 (neurons) in each group (area). Elements in yDims
 %                 should match the format of data in seqTrain and seqTest. 
-%     hasSpikesBool -- (1 x yDim) logical array; Each entry is 1 if an
-%                      observation (neuron) had any non-zero activity, 0
-%                      otherwise. (default: [])
 %     overwriteExisting -- logical; Set to true to overwrite existing
 %                          results files, if their names match the the ones
 %                          created during this run. (default: true)
@@ -56,13 +53,13 @@ function result = call_pcca_engine(fname,seqTrain,seqTest,varargin)
 % Revision history:
 %     17 Mar 2020 -- Initial full revision.
 %     07 May 2020 -- Save random number generator settings.
+%     13 May 2020 -- Removed hasSpikesBool functionality.
 
 method        = 'pcca';
 binWidth      = 20; % in msec
 cvf           = 0;
 yDims         = [];
 xDim          = 3;
-hasSpikesBool = [];
 overwriteExisting = true;
 rngSettings   = [];
 extraOpts     = assignopts(who, varargin);
@@ -88,7 +85,7 @@ if isequal(method,'pcca')
 end
 
 if exist([fname '.mat'], 'file')
-    save(fname, 'method', 'cvf', 'hasSpikesBool', 'rngSettings', '-append');
+    save(fname, 'method', 'cvf', 'rngSettings', '-append');
 end
 
 % Results are saved to a file.

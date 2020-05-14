@@ -1,6 +1,6 @@
-function plotPerfvsDim_dlag(res,bestModel,plotAcross,varargin)
+function plotPerfvsDim_dlag(res,plotAcross,varargin)
 % 
-% plotPerfvsDim_dlag(res,bestModel,plotAcross...)
+% plotPerfvsDim_dlag(res,plotAcross...)
 %
 % Description: Plot cross-validated performance metrics vs
 %              latent dimensionality.
@@ -39,9 +39,6 @@ function plotPerfvsDim_dlag(res,bestModel,plotAcross,varargin)
 %                         used to measure generalization performance
 %                         via regression
 %
-%     bestModel -- int; index corresponding to the best model 
-%                  (based on sumLL) in res (default:[])
-%
 %     plotAcross -- logical; set true to plot performance vs across-group
 %                   dimensionality, while holding within-group
 %                   dimensionalities fixed.
@@ -55,9 +52,9 @@ function plotPerfvsDim_dlag(res,bestModel,plotAcross,varargin)
 %                  which to fix each group. If plotAcross is false, then 
 %                  fixWithin(groupIdx) will be ignored, and that group's
 %                  dimensionality will vary. 
-%                  (default: res(bestModel).xDim_within)
+%                  (default: res(1).xDim_within)
 %     fixAcross -- int; Fixed across-group dimensionality 
-%                  (default: res(bestModel).xDim_across)
+%                  (default: res(1).xDim_across)
 %     plotLL    -- logical; set true to plot data log likelihood 
 %                  (default: true)
 %     plotR2    -- logical; set true to plot R^2 (default: false)
@@ -73,10 +70,13 @@ function plotPerfvsDim_dlag(res,bestModel,plotAcross,varargin)
 %
 % Revision history:
 %     09 Apr 2020 -- Initial full revision.
+%     13 May 2020 -- 'bestModel' now always derived from models to be
+%                    plotted. As a result, setting 'plotOrth' to true will 
+%                    never result in blank R^2 and MSE plots, as before.
 
 groupIdx = 1;
-fixWithin = res(bestModel).xDim_within;
-fixAcross = res(bestModel).xDim_across;
+fixWithin = res(1).xDim_within;
+fixAcross = res(1).xDim_across;
 plotLL = true;
 plotR2 = false;
 plotMSE = false;
@@ -92,17 +92,13 @@ keepIdxs = [];
 if plotAcross
     % Only plot models with within-group dimensionalities that match
     % fixWithin
+    xDim = [];
     for modelIdx = 1:numModels
         if isequal(res(modelIdx).xDim_within, fixWithin)
             keepIdxs = [keepIdxs modelIdx]; 
+            xDim = [xDim res(modelIdx).xDim_across];
         end
     end
-    % Update bestModel to correspond to the kept models (if it remains at
-    % all)
-    bestModel = find(keepIdxs == bestModel);
-    res = res(keepIdxs);
-    numModels = length(res); % Update the number of remaining models
-    xDim = [res.xDim_across];
     xlbl = {'Across-group dimensionality'; ...
             sprintf('(Within-group fixed at [%s])', num2str(fixWithin))};
 else
@@ -119,17 +115,18 @@ else
             xDim = [xDim res(modelIdx).xDim_within(groupIdx)];
         end
     end
-    % Update bestModel to correspond to the kept models (if it remains at
-    % all)
-    bestModel = find(keepIdxs == bestModel);
-    res = res(keepIdxs);
-    numModels = length(res); % Update the number of remaining models
     xlbl = {sprintf('Within-group %d dimensionality', groupIdx); ...
             sprintf('(Across-group fixed at %d, Within-group fixed at [%s])',...
                    fixAcross, num2str(fixWithin(otherIdxs)))};
 end
 
+% Throw out irrelevant models
+res = res(keepIdxs);
+numModels = length(res); % Update the number of remaining models
 
+% Among the kept models, determine the best model
+sumLL = [res.sumLL];
+[~, bestModel] = max(sumLL);
 
 % Determine number of subplots, based on which metrics are to be plotted
 numPlots = sum([plotLL plotR2 plotMSE]);
@@ -148,14 +145,14 @@ if plotLL
     sumLL = [res.sumLL];
     plot(xDim, sumLL, 'o-', 'Color', colors.grays{1}, ...
          'MarkerFaceColor', colors.grays{1}, 'linewidth', 1.5);
-    if ~isempty(bestModel)
-        legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
-                             'color', colors.reds{4}, ...
-                             'markerfacecolor', colors.reds{4}, ...
-                             'markersize', 10);
-        legendLabels = 'best model';
-        legend(legendEntries, legendLabels, 'Location', 'southeast');
-    end
+
+    % Mark the best model among the plotted models.
+    legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
+                         'color', colors.reds{4}, ...
+                         'markerfacecolor', colors.reds{4}, ...
+                         'markersize', 10);
+    legendLabels = 'best model';
+    legend(legendEntries, legendLabels, 'Location', 'southeast');
     hold off;
 end
 
@@ -164,8 +161,6 @@ if plotR2
     plotIdx = plotIdx + 1;
     subplot(1,numPlots,plotIdx);
     hold on;
-    xlabel(xlbl);
-    ylabel('Cross-validated R^2');
     rcolors = {colors.grays{1}, colors.grays{6}};
     
     % Plot R^2 for prediction in both directions
@@ -187,7 +182,7 @@ if plotR2
         end
     end
     
-    if plotOrth && ~isempty(bestModel)
+    if plotOrth
         xDim = 1:res(bestModel).xDim_across; % xDim potentially changes here
         for rIdx = 1:numRGroups
             R2orth = res(bestModel).R2orth(:,rIdx);
@@ -197,7 +192,12 @@ if plotR2
             predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
             legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
         end
+        % Overwrite the x-axis label
+        xlbl = {'Across-group dimensionality'; ...
+                '(Best model, orthonormalized)'};
     end
+    xlabel(xlbl);
+    ylabel('Cross-validated R^2');
     legend(legendEntries, legendLabels, 'Location', 'southeast');
     hold off;
 end
@@ -207,8 +207,6 @@ if plotMSE
     plotIdx = plotIdx + 1;
     subplot(1,numPlots,plotIdx);
     hold on;
-    xlabel(xlbl);
-    ylabel('Cross-validated MSE');
     rcolors = {colors.grays{1}, colors.grays{6}};
     
     % Plot MSE for prediction in both directions
@@ -230,7 +228,7 @@ if plotMSE
         end
     end
     
-    if plotOrth && ~isempty(bestModel)
+    if plotOrth
         xDim = 1:res(bestModel).xDim_across; % xDim potentially changes here
         for rIdx = 1:numRGroups
             MSEorth = res(bestModel).MSEorth(:,rIdx);
@@ -241,7 +239,12 @@ if plotMSE
             predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
             legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
         end
+        % Overwrite the x-axis label
+        xlbl = {'Across-group dimensionality'; ...
+                '(Best model, orthonormalized)'};
     end
+    xlabel(xlbl);
+    ylabel('Cross-validated MSE');
     legend(legendEntries, legendLabels, 'Location', 'northeast');
     hold off;
 end
