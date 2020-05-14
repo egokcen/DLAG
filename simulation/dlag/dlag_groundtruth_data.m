@@ -9,6 +9,8 @@
 % 
 % Revision history:
 %     07 Apr 2020 -- Initial full revision.
+%     14 May 2020 -- Updated to remain compatible with 'dat' argument
+%                    format in fit_dlag.m
 
 %% Define DLAG ground truth model parameters
 
@@ -42,7 +44,6 @@ min_delay = -50;                 % Lower-bound of delay range, in samples (time 
 max_delay = 50;                  % Uppder-bound of delay range, in samples (time steps)
 
 %% Randomly generate data from a DLAG model
-
 [Ys, Xs, params] = simdata_dlag(N, T, binWidth, yDims, ...
                                 xDim_across, xDim_within, ...
                                 min_tau, max_tau, min_eps, max_eps, ...
@@ -53,15 +54,15 @@ max_delay = 50;                  % Uppder-bound of delay range, in samples (time
 % fit_dlag.m
 Y = cat(1, Ys{:});
 Y = dat2seq(Y);
-Ytrain.seq = Y.seq(1:numTrain);
-Ytest.seq = Y.seq(numTrain+1:end);
+Ytrain = Y(1:numTrain);
+Ytest = Y(numTrain+1:end);
 
 % Do the same for ground truth latent trajectories, so data is compatible
 % with DLAG plotting functions
 X = cat(1, Xs{:});
 X = dat2seq(X,'datafield','xgt');
-Xtrain.seq = X.seq(1:numTrain);
-Xtest.seq = X.seq(numTrain+1:end);
+Xtrain = X(1:numTrain);
+Xtest = X(numTrain+1:end);
 
 %% Save some of the ground truth parameters that we care about
 trueParams.C = blkdiag(params.Cs{:});

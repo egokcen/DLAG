@@ -3,12 +3,10 @@ function result = fit_dlag(runIdx, dat, varargin)
 % result = fit_dlag(runIdx, dat, ...)
 % 
 % Description: This function does most of the front-end work for fitting
-%              the DLAG model. It prepares data, sets up cross-validation
-%              folds (along with parallelization), and then calls the
-%              functions that actually estimate DLAG parameters.
-%              Data can be input in one of two formats: as a 0/1 matrix of 
-%              spiking activity or a sequence of continuous values (see 
-%              datFormat).
+%              the DLAG model. It prepares directories for saved results,
+%              sets up cross-validation folds (along with parallelization),
+%              and then calls the functions that actually estimate DLAG 
+%              parameters.
 %
 %              NOTE: fit_dlag will not train models for which the number of
 %                    within- and across-group dimensions adds up to more
@@ -24,42 +22,27 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                   baseDir/mat_results/runXXX, where XXX is runIdx.
 %                   baseDir can be specified by the user (see below)
 %     dat       --  (1 x N) structure whose nth entry (corresponding to the
-%                   nth experimental trial) has fields that depend on the 
-%                   value of datFormat. In all cases, features (neurons)
-%                   are assumed to be ordered according to which group
-%                   (area) they belong to. For example, if data has
-%                   features belonging to two groups, then each observation
-%                   should be organized as follows: 
+%                   nth experimental trial) has fields
+%                       trialId      -- unique trial identifier  
+%                       T (1 x 1)    -- number of timesteps
+%                       y (yDim x T) -- continuous valued data 
+%                                       (e.g., binned spike counts)
+%                   Features (neurons) are assumed to be ordered according
+%                   to which group (area) they belong to. For example, if
+%                   data has features belonging to two groups, then each 
+%                   observation should be organized as follows: 
 %                        [      |
 %                         Group 1 Features
 %                               |
 %                               |
 %                         Group 2 Features
 %                               |         ]
-%                   if datFormat is 'spikes', nth entry has fields
-%                       trialId -- unique trial identifier                       
-%                       spikes  -- (yDim x T) array; 0/1 matrix of the 
-%                                  raw spiking activity across all 
-%                                  neurons.  Each row corresponds to a 
-%                                  neuron. Each column corresponds to a
-%                                  1 msec timestep.
-%                   if datFormat is 'seq', nth entry has fields
-%                       trialId      -- unique trial identifier  
-%                       T (1 x 1)    -- number of timesteps
-%                       y (yDim x T) -- continuous valued data 
-%                                       (Eg: binned spike counts)
-%     yDims     -- (1 x numGroups) array; Specify the number features 
-%                  (neurons) in each group (area). Elements in yDims
-%                  should match the format of dat. 
-%                  NOTE: This is a named argument, for convenience of
-%                        implementation, but the code will break if it is
-%                        not specified.
+%                   NOTE: If you have spiking neural data, and need to
+%                         convert it to binned spike counts, see getSeq.m.
 %
 %     Optional: (Many of these are technically defined as optional, but
 %               should really be specified).
 %
-%     datFormat   -- string; specifies format of input data:
-%                    'spikes' or 'seq'. (default: 'seq')
 %     baseDir     -- string; specifies directory in which to store
 %                    mat_results. (default: '.', i.e., current directory)
 %     method      -- string; method to be used (currently one supported):
@@ -68,6 +51,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                    (e.g., ms) (default: 20)
 %     numFolds    -- int; number of cross-validation folds (default: 0).
 %                    0 indicates no cross-validation, i.e. train on all trials.
+%     yDims       -- (1 x numGroups) array; Specify the number of features 
+%                    (neurons) in each group (area). Elements in yDims
+%                    should match the format of dat.
 %     xDims_across -- (1 x numDims) array; across-group state 
 %                     dimensionalities to be modeled. For example, to fit
 %                     3 separate models, each with 1, 2, and 3 across-group
@@ -165,12 +151,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %               cvf         -- int; indicates which cross-validation fold 
 %                              this model was fit to. (0 if fit to all 
 %                              data)
-%               hasSpikesBool -- (yDim x 1) logical array; indicates which
-%                                neurons had non-zero activity.
 %               seqTrain    -- training data structure of the same format 
-%                              as dat (with data formatted as in the 'seq' 
-%                              format option). Also includes latent 
-%                              trajectories inferred using estParams.
+%                              as dat. Also includes latent trajectories 
+%                              inferred using estParams.
 %                              NOTE: Only included if saveData is true. 
 %               seqTrainCut -- data structure of the same format as
 %                              seqTrain, but for data where trials were
@@ -205,9 +188,13 @@ function result = fit_dlag(runIdx, dat, varargin)
 % Revision history:
 %     11 Mar 2020 -- Initial full revision.
 %     07 May 2020 -- Added option to seed random number generator.
+%     13 May 2020 -- Error will be thrown if yDims specified incorrectly.
+%                    Removed hasSpikesBool functionality, which removed
+%                    inactive units based on the training set.
+%     14 May 2020 -- Removed datFormat option. Spiking data can be
+%                    preprocessed separately, if desired, with getSeq.m
 
 % Specify defaults for optional arguments
-datFormat            = 'seq';
 baseDir              = '.';
 method               = 'dlag';
 binWidth             = 20;
@@ -236,20 +223,13 @@ else
     mkdir(runDir);
 end
 
-% If input is in format 1 (raw spikes), obtain binned spike counts
-switch(datFormat)
-    case 'spikes'
-        seq  = getSeq(dat, binWidth, extraOpts{:});
-    case 'seq'
-        seq  = dat.seq;
-end
-
-if isempty(seq)
-    fprintf('Error: No valid trials.  Exiting.\n');
+% Verify that yDims was specified correctly
+if sum(yDims) ~= size(dat(1).y,1)
+    fprintf('Error: Entries in yDims do not sum to yDim.  Exiting.\n');
     return;
 end
 
-N    = length(seq);      % Number of trials
+N    = length(dat);      % Number of trials
 cvf_list = 0:numFolds;   % Cross-validation folds, including training on all data
 
 % Seed the random number generator, for reproducibility
@@ -297,19 +277,8 @@ for cvf = cvf_list
     end
     train = ~val;
 
-    seqTrain      = seq(train);
-    seqTest       = seq(val);
-
-    % Remove inactive units based on training set
-    hasSpikesBool = (mean([seqTrain.y], 2) ~= 0);
-
-    for n = 1:length(seqTrain)
-        seqTrain(n).y = seqTrain(n).y(hasSpikesBool,:);
-    end
-
-    for n = 1:length(seqTest)
-        seqTest(n).y = seqTest(n).y(hasSpikesBool,:);
-    end
+    seqTrain      = dat(train);
+    seqTest       = dat(val);
 
     % Check if training data covariance is full rank
     yAll = [seqTrain.y];
@@ -323,7 +292,6 @@ for cvf = cvf_list
 
     cv_data(cvf+1).seqTrain = seqTrain;
     cv_data(cvf+1).seqTest = seqTest;
-    cv_data(cvf+1).hasSpikesBool = hasSpikesBool;
 end
 
 % We assume within- and across-group dimensions are linearly 
@@ -369,8 +337,7 @@ if parallelize
             cv_data(cvf_params(i).cvf+1).seqTest, 'method', method, ...
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within,...
             'yDims', yDims, 'cvf', cvf_params(i).cvf, 'parallelize', parallelize, ...
-            'hasSpikesBool', cv_data(cvf_params(i).cvf+1).hasSpikesBool, 'binWidth', binWidth,...
-            'rngSettings', rngSettings, extraOpts{:});                
+            'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});                
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
@@ -384,8 +351,7 @@ else % Otherwise, continue without settup up parallelization
             cv_data(cvf_params(i).cvf+1).seqTest, 'method', method, ...
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within, ...
             'yDims', yDims, 'cvf', cvf_params(i).cvf, 'parallelize', parallelize, ...
-            'hasSpikesBool', cv_data(cvf_params(i).cvf+1).hasSpikesBool, 'binWidth', binWidth,...
-            'rngSettings', rngSettings, extraOpts{:});        
+            'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});        
     end
 end
 

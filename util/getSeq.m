@@ -20,7 +20,7 @@ function seq = getSeq(dat, binWidth, varargin)
 %               the nth experimental trial) has fields
 %                 trialId      -- unique trial identifier
 %                 T (1 x 1)    -- number of timesteps
-%                 y (yDim x T) -- neural data
+%                 y (yDim x T) -- binned spike counts
 %
 % OPTIONAL ARGUMENTS:
 %

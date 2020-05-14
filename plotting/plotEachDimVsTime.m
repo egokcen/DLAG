@@ -222,7 +222,7 @@ else % Format figure to more clearly distinguish across- and within-group latent
         if xDim_within(groupIdx) > 0
             % Within-group latents
             for k = 1:xDim_within(groupIdx)
-                plotIdx = numGroups*xDim_across + (groupIdx-1)*nCols + k;
+                plotIdx = numGroups*nCols + (groupIdx-1)*nCols + k;
                 h = subplot(nRows, nCols, plotIdx);
                 hold on;
                 if plotZero

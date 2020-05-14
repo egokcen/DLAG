@@ -9,6 +9,8 @@
 % 
 % Revision history:
 %     07 Apr 2020 -- Initial full revision.
+%     14 May 2020 -- Updated to remain compatible with 'dat' argument
+%                    format in fit_dlag.m
 
 %% Define pCCA ground truth model parameters
 
@@ -49,8 +51,8 @@ for n = 1:N
     end
 end
 Y = dat2seq(Y);
-Ytrain.seq = Y.seq(1:numTrain);
-Ytest.seq = Y.seq(numTrain+1:end);
+Ytrain = Y(1:numTrain);
+Ytest = Y(numTrain+1:end);
 
 % Do the same for ground truth latent trajectories, so data is compatible
 % with plotting functions
@@ -60,8 +62,8 @@ for n = 1:N
     Xgt(:,:,n) = X(:,currTrial);
 end
 Xgt = dat2seq(Xgt,'datafield','xgt');
-Xtrain.seq = Xgt.seq(1:numTrain);
-Xtest.seq = Xgt.seq(numTrain+1:end);
+Xtrain = Xgt(1:numTrain);
+Xtest = Xgt(numTrain+1:end);
 
 %% Save some of the ground truth parameters that we care about
 trueParams.Cs = params.Cs;
