@@ -83,8 +83,9 @@ delays_true = trueParams.DelayMatrix(rGroups(2),:) ...
 maxDelay = max([delays_est delays_true]);
 minDelay = min([delays_est delays_true]);
 
-maxTau = max([estParams.tau_across trueParams.tau_across]);
-minTau = min([estParams.tau_across trueParams.tau_across]);
+all_tau = [estParams.tau_across trueParams.tau_across ...
+           estParams.tau_within{:} trueParams.tau_within{:}];
+maxTau = max(all_tau);
 
 figure;
 hold on;
@@ -97,8 +98,8 @@ end
 xlabel(sprintf('Delay from area %d to area %d%s',rGroups(1),rGroups(2),units));
 ylabel(sprintf('Across-group GP timescale%s', units));
 xlim([minDelay-10,maxDelay+10]);
-ylim([minTau-10,maxTau+10]);
-line([0 0], [minTau-10 maxTau+10], ...
+ylim([0,maxTau+10]);
+line([0 0], [0 maxTau+10], ...
      'Color', colors.grays{6}, ...
      'linestyle', '--', ...
      'linewidth', 1.5);

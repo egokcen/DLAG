@@ -79,7 +79,8 @@ if xDim == 0
     [LLtrain, ~, ~] = indepGroupEval(Ys_train, estParams, rGroups);
 else
     % Otherwise, fit pCCA normally.
-    [estParams, LL] = em_pcca(Ys_train, xDim, extraOpts{:});
+    [estParams, LL] = em_pcca(Ys_train, xDim, ...
+                              'parallelize', parallelize, extraOpts{:});
     
     % Extract neural trajectories using learned parameters
     [Xtrain, LLtrain] = pcca_estep(Ys_train, estParams);

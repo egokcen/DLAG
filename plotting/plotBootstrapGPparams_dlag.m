@@ -1,10 +1,11 @@
-function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
+function plotBootstrapGPparams_dlag(params,bootParams,binWidth,rGroups,varargin)
 %
-% gp_params = plotGPparams_dlag(params,binWidth,rGroups,...)
+% plotBootstrapGPparams_dlag(params,bootParams,binWidth,rGroups,...)
 %
-% Description: Plot DLAG Delay Matrix and latent timescales. Delays and 
-%              across-group timescales are plotted as ordered pairs, only
-%              for the reference groups specified in rGroups.
+% Description: Plot DLAG Delay Matrix and latent timescales, along with 
+%              bootstrap confidence intervals (see bootstrapGPparams.m). 
+%              Delays and across-group timescales are plotted as ordered 
+%              pairs, only for the reference groups specified in rGroups.
 %
 % Arguments: 
 %
@@ -37,6 +38,29 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %                                    within-group latents in each group
 %                    yDims        -- (1 x numGroups) array; 
 %                                    dimensionalities of each observed group
+%     bootParams  -- Structure containing bootstrapped DLAG GP parameters.
+%                    Contains the fields
+%
+%                    tau_across.upper -- (1 x xDim_across) array; 
+%                                         confidence interval upper bound
+%                                         on across-group GP timescales  
+%                    tau_across.lower -- (1 x xDim_across) array; 
+%                                         confidence interval lower bound
+%                                         on across-group GP timescales 
+%                    tau_within.upper -- (1 x numGroups) cell array; 
+%                                        confidence interval upper bound
+%                                        on GP timescales for each group
+%                    tau_within.lower -- (1 x numGroups) cell array; 
+%                                        confidence interval lower bound
+%                                        on GP timescales for each group
+%                    DelayMatrix.upper -- (numGroups x xDim_across) array;
+%                                        confidence interval upper bound on 
+%                                        the delay matrix, converted to 
+%                                        units of time.
+%                    DelayMatrix.lower -- (numGroups x xDim_across) array;
+%                                        confidence interval lower bound on 
+%                                        the delay matrix, converted to 
+%                                        units of time.
 %
 %     binWidth   -- float; bin width or sample period (in e.g., ms)
 %     rGroups    -- (1 x 2) array; Indexes of groups to get relative
@@ -53,24 +77,13 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %
 % Outputs:
 %     
-%    gp_params -- structure containing DLAG GP parameters, converted into
-%                 units of time.
-%                 DelayMatrix  -- (numGroups x xDim_across) array;
-%                                 delays from across-group latents to 
-%                                 observed variables
-%                 tau_across -- (1 x xDim_across) array; across-group GP
-%                               timescales
-%                 tau_within -- (1 x numGroups) cell array; within-group
-%                               GP timescales for each group. tau_within(i)
-%                               is empty for groups with no within-group
-%                               latents.
+%     None. (But creates figures)
 %              
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
-%     10 Apr 2020 -- Initial full revision.
-%     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     17 May 2020 -- Initial full revision.
 
 % Set optional arguments
 plotAcross = true;
@@ -90,12 +103,22 @@ gp_params = getGPparams_dlag(params, binWidth);
 % Take only the delays associated with the groups in rGroups
 delays = gp_params.DelayMatrix(rGroups(2),:) ...
        - gp_params.DelayMatrix(rGroups(1),:);
+bootDelays.upper = bootParams.DelayMatrix.upper(rGroups(2),:) ...
+                 - bootParams.DelayMatrix.upper(rGroups(1),:);
+bootDelays.lower = bootParams.DelayMatrix.lower(rGroups(2),:) ...
+                 - bootParams.DelayMatrix.lower(rGroups(1),:);
 
 % Figure out plot limits
-maxDelay = max(delays);
-minDelay = min(delays);
+maxDelay = max([delays bootDelays.upper bootDelays.lower]);
+minDelay = min([delays bootDelays.upper bootDelays.lower]);
 
-all_tau = [gp_params.tau_across gp_params.tau_within{:}];
+all_tau = [gp_params.tau_across ...
+           bootParams.tau_across.upper ...
+           bootParams.tau_across.lower ...
+           gp_params.tau_within{:} ...
+           bootParams.tau_within.upper{:} ...
+           bootParams.tau_within.lower{:}];
+
 maxTau = max(all_tau);
 
 % Determine number of subplots, based on optional arguments
@@ -127,9 +150,16 @@ if plotAcross
          'Color', colors.grays{6}, ...
          'linestyle', '--', ...
          'linewidth', 1.5);
-    scatter(delays, gp_params.tau_across, ...
-             'MarkerFaceColor', colors.reds{3}, ...
-             'MarkerEdgeColor', colors.reds{3});
+    errorbar(delays, gp_params.tau_across, ...
+             gp_params.tau_across - bootParams.tau_across.lower, ...
+             bootParams.tau_across.upper - gp_params.tau_across, ...
+             delays - bootDelays.lower, ...
+             bootDelays.upper - delays, ...
+             'o', ...
+             'color', colors.grays{6}, ...
+             'linestyle', 'none', ...
+             'linewidth', 1.5, ...
+             'MarkerFaceColor', colors.reds{3});
     hold off;
 end
 
@@ -143,11 +173,17 @@ if plotWithin
             hold on;
             xlim([0,xDim_within(groupIdx)+1]); 
             ylim([0,maxTau+10]);
-            h = bar([1:xDim_within(groupIdx)],gp_params.tau_within{groupIdx},0.4);    
-            set(h,'facecolor',colors.reds{3},'edgecolor','none');       
+            errorbar([1:xDim_within(groupIdx)], gp_params.tau_within{groupIdx}, ...
+                     gp_params.tau_within{groupIdx} - bootParams.tau_within.lower{groupIdx}, ...
+                     bootParams.tau_within.upper{groupIdx} - gp_params.tau_within{groupIdx}, ...
+                     'o', ...
+                     'color', colors.grays{6}, ...
+                     'linestyle', 'none', ...
+                     'linewidth', 1.5, ...
+                     'MarkerFaceColor', colors.reds{3});
             ylabel(sprintf('GP timescale%s', units));
             set(gca,'XTick',1:xDim_within(groupIdx));
-            xlabel(sprintf('Within-group latents, group %d', groupIdx)); 
+            xlabel(sprintf('Within-group latents, group %d', groupIdx));
             hold off;
         end
     end

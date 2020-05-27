@@ -53,7 +53,7 @@ function [seq, LL] = exactInferenceWithLL_dlag(seq, params, varargin)
 %                   precomputations. (default: true)
 %     precomp    -- Structure containing the following E-step precomputations:
 %                   Rinv     -- (yDim x yDim) array; inverse of observation 
-%                            noise covariance matrix, R
+%                               noise covariance matrix, R
 %                   logdet_R -- float; log-determinant of R
 %                   CRinv    -- (xDim x yDim) array; C' * Rinv
 %                   CRinvC   -- (xDim x xDim) array; C' * Rinv * C

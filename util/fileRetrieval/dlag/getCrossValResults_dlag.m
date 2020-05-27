@@ -58,6 +58,7 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %
 % Revision history:
 %     09 Apr 2020 -- Initial full revision.
+%     23 May 2020 -- Added warning for models with errors during fitting.
 
 baseDir  = '.';
 assignopts(who, varargin);
@@ -106,6 +107,10 @@ for modelIdx = 1:numModels
     for i = fIdxs    
         fprintf('Loading %s/%s...\n', runDir, D(i).name);
         ws = load(sprintf('%s/%s', runDir, D(i).name));
+        if ws.err_status
+            % Flag models where fitting stopped due to an error
+            fprintf('Warning: Data likelihood decreased for %s\n', D(i).name);
+        end
         if ws.cvf == 0
             % For models trained on all data, extract the estimated
             % parameters.

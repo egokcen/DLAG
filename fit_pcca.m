@@ -135,6 +135,9 @@ function result = fit_pcca(runIdx, dat, varargin)
 %                    inactive units based on the training set.
 %     14 May 2020 -- Removed datFormat option. Spiking data can be
 %                    preprocessed separately, if desired, with getSeq.m
+%     24 May 2020 -- Moved printed info about fitted models from
+%                    call_pcca_engine.m to here. That move cleans up prints 
+%                    during parallelization.
 
 % Specify defaults for optional arguments
 baseDir              = '.';
@@ -231,20 +234,32 @@ end
 if parallelize
     StartParPool(numWorkers);  % Helper function to set up parfor construct
     parfor i = 1:length(cvf_params)
+        % Print minimal info about the model to be fitted.
+        fprintf('Across-group: %d, CV Fold: %d of %d\n', ...
+             cvf_params(i).xDim, cvf_params(i).cvf, numFolds);
+        
+        % Call the pCCA engine
         call_pcca_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
             cvf_params(i).seqTest, 'method', method, 'yDims', yDims, ...
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...
             'rGroups', rGroups, 'parallelize', parallelize, ... 
-            'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});                
+            'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});  
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
+        % Print useful info about the model about to be fitted.
         if cvf_params(i).cvf == 0
             fprintf('\n===== Training on all data =====\n');
         else
             fprintf('\n===== Cross-validation fold %d of %d =====\n', ...
                 cvf_params(i).cvf, numFolds);
         end
+        fprintf('Number of training trials: %d\n', length(cvf_params(i).seqTrain));
+        fprintf('Number of test trials: %d\n', length(cvf_params(i).seqTest));
+        fprintf('Across-group latent dimensionality: %d\n', cvf_params(i).xDim);
+        fprintf('Observation dimensionality: %d\n', size(cvf_params(i).seqTrain(1).y,1));
+        
+        % Call the pCCA engine
         call_pcca_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
             cvf_params(i).seqTest, 'method', method, 'yDims', yDims, ...
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...

@@ -1,6 +1,7 @@
 addpath core_dlag
 addpath core_pcca
 addpath plotting
+addpath post-selection_inference
 addpath simulation
 addpath simulation/dlag
 addpath simulation/pcca

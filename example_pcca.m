@@ -121,8 +121,8 @@ plotTraj(Ytest, xspec, ...
 % If parallelize is true, all folds will be run in parallel using Matlab's
 % parfor construct. If you have access to multiple cores, this provides
 % significant speedup.
-parallelize = false;
-numWorkers = 2;      % Adjust this to your computer's specs
+parallelize = true;
+numWorkers = 28;      % Adjust this to your computer's specs
 
 % Change other input arguments as appropriate
 runIdx = 5;

@@ -140,6 +140,10 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                              gams_within(i) -- (1 x numIters) cell array;
 %                              estimated gamma_within for group i after 
 %                              each EM iteration.
+%               err_status  -- int; 1 if data likelihood decreased during
+%                              fitting. 0 otherwise.
+%               msg         -- string; A message indicating why fitting was
+%                              stopped (for both error and non-error cases).
 %               LLcut       -- (1 x numIters) array; data log likelihood  
 %                              after each EM iteration (where training data 
 %                              was potentially 'cut' into trials of equal 
@@ -193,6 +197,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                    inactive units based on the training set.
 %     14 May 2020 -- Removed datFormat option. Spiking data can be
 %                    preprocessed separately, if desired, with getSeq.m
+%     24 May 2020 -- Moved printed info about fitted models from
+%                    call_dlag_engine.m to here. That move cleans up prints 
+%                    during parallelization.
 
 % Specify defaults for optional arguments
 baseDir              = '.';
@@ -333,6 +340,12 @@ end
 if parallelize
     StartParPool(numWorkers);  % Helper function to set up parfor construct
     parfor i = 1:length(cvf_params)
+        % Print minimal info about the model to be fitted.
+        fprintf('Across-group: %d, Within-group: %s, CV Fold: %d of %d\n', ...
+             cvf_params(i).xDim_across, num2str(cvf_params(i).xDim_within), ...
+             cvf_params(i).cvf, numFolds);
+  
+        % Call the DLAG engine
         call_dlag_engine(cvf_params(i).fname, cv_data(cvf_params(i).cvf+1).seqTrain, ...
             cv_data(cvf_params(i).cvf+1).seqTest, 'method', method, ...
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within,...
@@ -341,12 +354,20 @@ if parallelize
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
+        % Print useful info about the model about to be fitted.
         if cvf_params(i).cvf == 0
             fprintf('\n===== Training on all data =====\n');
         else
             fprintf('\n===== Cross-validation fold %d of %d =====\n', ...
                 cvf_params(i).cvf, numFolds);
         end
+        fprintf('Number of training trials: %d\n', length(cv_data(cvf_params(i).cvf+1).seqTrain));
+        fprintf('Number of test trials: %d\n', length(cv_data(cvf_params(i).cvf+1).seqTest));
+        fprintf('Across-group latent dimensionality: %d\n', cvf_params(i).xDim_across);
+        fprintf('Within-group latent dimensionalities: %s\n', num2str(cvf_params(i).xDim_within));
+        fprintf('Observation dimensionality: %d\n', size(cv_data(cvf_params(i).cvf+1).seqTrain(1).y,1));
+
+        % Call the DLAG engine
         call_dlag_engine(cvf_params(i).fname, cv_data(cvf_params(i).cvf+1).seqTrain, ...
             cv_data(cvf_params(i).cvf+1).seqTest, 'method', method, ...
             'xDim_across', cvf_params(i).xDim_across, 'xDim_within', cvf_params(i).xDim_within, ...
