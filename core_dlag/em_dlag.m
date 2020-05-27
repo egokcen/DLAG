@@ -1,4 +1,5 @@
-function [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(currentParams,seq,varargin)
+function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ...
+          = em_dlag(currentParams,seq,varargin)
 %
 % [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(currentParams,seq,...)
 %
@@ -48,14 +49,15 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(current
 %                  (default: 1e-8)
 %     tolParam  -- float; stopping criterion #2 for EM (based on delays and
 %                  timescales; i.e., if across-group delays and timescales 
-%                  stop changing, stop training.) (default: 1e-4)
+%                  stop changing, stop training.) (default: -Inf)
 %     freqLL    -- int; data likelihood is computed every freqLL EM iterations.
 %                  freqLL = 1 means that data likelihood is computed every
 %                  iteration. (default: 10)
-%     freqParam -- int; check delays and timescales for convergence every
-%                  freqParam EM iterations (default: 100)
+%     freqParam -- int; store intermediate values for delays and timescales
+%                  and check for convergence every freqParam EM iterations 
+%                  (default: 100)
 %     verbose   -- logical; specifies whether to display status messages
-%                  (default: false)
+%                  (default: true)
 %     maxDelayFrac -- float in range [0,1]; Constrain estimated delays to
 %                  be no more than a certain fraction of the trial length.
 %                  (default: 0.5)
@@ -66,6 +68,9 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(current
 %     learnDelays -- logical; If set to false, then delays will remain
 %                  fixed at their initial value throughout training. 
 %                  (default: true)
+%     learnObs  -- logical; If set to false, then observation parameters
+%                  will remain fixed at their initial value throughout 
+%                  training. (default: true)
 %
 % Outputs:
 %
@@ -101,6 +106,10 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(current
 %                    gams_within(i) -- (1 x numIters) cell array; estimated
 %                                      gamma_within for group i after each 
 %                                      EM iteration.
+%     err_status -- int; 1 if data likelihood decreased during fitting. 0
+%                   otherwise.
+%     msg        -- string; A message indicating why fitting was stopped 
+%                   (for both error and non-error cases).
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -108,18 +117,24 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(current
 % Revision history:
 %     18 Mar 2020 -- Initial full revision. 
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     23 May 2020 -- Cleaned up 'verbose' functionality. Improved 
+%                    exception handling if data likelihood decreases during
+%                    fitting.
+%     26 May 2020 -- Changed default on tolParam from 1e-4 to -Inf (i.e.,
+%                    the default is to not check this criterion).
            
 % Optional arguments
 maxIters     = 1e6;
 tolLL        = 1e-8;
-tolParam     = 1e-4;
+tolParam     = -Inf;
 freqLL       = 10;
 freqParam    = 100;
-verbose      = false;
+verbose      = true;
 maxDelayFrac = 0.5;
 minVarFrac   = 0.01;
 parallelize  = false;
 learnDelays  = true;
+learnObs     = true;
 extra_opts   = assignopts(who,varargin);
 
 % Initialize other variables
@@ -157,13 +172,13 @@ for groupIdx = 1:numGroups
     gams_within{groupIdx} = {currentParams.gamma_within{groupIdx}};
 end
 
+% Track error if data likelihood decreases
+err_status = 0;
+
 % Begin EM iterations
 for i =  1:maxIters
-    if verbose
-        fprintf('\n');
-    end
     
-    if ~parallelize
+    if verbose && ~parallelize
         fprintf('EM iteration %3d of %d ', i, maxIters);
     end
     
@@ -187,11 +202,13 @@ for i =  1:maxIters
     LL = [LL LLi];
     
     %% === M STEP ===
-    % Learn C,d,R     
-    res = learnObsParams_dlag(seq, currentParams, 'minVarFrac', minVarFrac);
-    currentParams.C = res.C;
-    currentParams.d = res.d;
-    currentParams.R = res.R;
+    if learnObs
+        % Learn C,d,R     
+        res = learnObsParams_dlag(seq, currentParams, 'minVarFrac', minVarFrac);
+        currentParams.C = res.C;
+        currentParams.d = res.d;
+        currentParams.R = res.R;
+    end
     
     % Learn GP kernel params and delays
     if currentParams.notes.learnKernelParams
@@ -206,7 +223,7 @@ for i =  1:maxIters
         tempParams.eps = currentParams.eps_across;
         % learnGPparams_pluDelays performs gradient descent to learn kernel
         % parameters WITH delays
-        res = learnGPparams_plusDelays(seqAcross, tempParams, 'verbose', verbose,...
+        res = learnGPparams_plusDelays(seqAcross, tempParams, ...
                                        'algorithm','em',extra_opts{:});
         switch currentParams.covType
             case 'rbf'
@@ -245,7 +262,7 @@ for i =  1:maxIters
                 % learnGPparams performs gradient descent to learn kernel
                 % parameters WITHOUT delays. 
                 % Reused from GPFA
-                res = learnGPparams(seqWithin{groupIdx}, tempParams, 'verbose', verbose,...
+                res = learnGPparams(seqWithin{groupIdx}, tempParams,...
                                     'algorithm','em',extra_opts{:});
                 switch currentParams.covType
                     case 'rbf'
@@ -270,19 +287,11 @@ for i =  1:maxIters
     iterTime = [iterTime tEnd];  % Finish tracking EM iteration time
     
     % Display the most recent likelihood that was evaluated
-    if ~parallelize
-        if verbose
-            if getLL
-                fprintf('       lik %f (%.1f sec)\n', LLi, tEnd);
-            else
-                fprintf('\n');
-            end
+    if verbose && ~parallelize
+        if getLL
+            fprintf('       lik %f\r', LLi);
         else
-            if getLL
-                fprintf('       lik %f\r', LLi);
-            else
-                fprintf('\r');
-            end
+            fprintf('\r');
         end
     end
     % Verify that likelihood is growing monotonically
@@ -290,28 +299,35 @@ for i =  1:maxIters
         LLbase = LLi;
     end
     if (LLi < LLold)
-        fprintf('\nError: Data likelihood has decreased from %g to %g\n',...
-            LLold, LLi);
-        keyboard;
+        err_status = 1;
+        msg = sprintf('Error: Data likelihood decreased from %g to %g on iteration %d\n',...
+                      LLold, LLi, i);
+        break;
     elseif ((LLi-LLbase) < (1+tolLL)*(LLold-LLbase))
         % Stopping criterion #1: log-likelihood not changing
-        fprintf('\nLL has converged.\n');
+        msg = sprintf('LL has converged');
         break;
     elseif (deltaD_i < tolParam) && (deltaGam_across_i < tolParam) && (learnDelays)
         % Stopping criterion #2: Across-group delays AND timescales not changing
         % Don't use parameter changes as a convergence criterion if not
         % learning delays.
-        fprintf('\nAcross-group delays and timescales have converged.\n');
+        msg = sprintf('Across-group delays and timescales have converged');
         break;
     end
 
 end
-fprintf('\n');
 
-if ~parallelize
+if ~err_status
     if length(LL) < maxIters
-        fprintf('Fitting has converged after %d EM iterations.\n', length(LL));
+        msg = sprintf('%s after %d EM iterations.', msg, length(LL));
+    else
+        msg = sprintf('Fitting stopped after maxIters (%d) was reached.', maxIters);
     end
+    
 end
-estParams = currentParams;
 
+if verbose && ~parallelize
+    fprintf('\n%s\n', msg);
+end
+    
+estParams = currentParams;

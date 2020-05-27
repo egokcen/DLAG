@@ -56,6 +56,7 @@ function result = call_dlag_engine(fname,seqTrain,seqTest,varargin)
 %     17 Mar 2020 -- Initial full revision.
 %     07 May 2020 -- Save random number generator settings.
 %     13 May 2020 -- Removed hasSpikesBool functionality.
+%     24 May 2020 -- Printed info about fitted model moved to fit_dlag.m
 
 method        = 'dlag';
 binWidth      = 20; % in msec
@@ -78,22 +79,6 @@ if ~(overwriteExisting) && exist([fname '.mat'], 'file')
     fprintf('%s already exists.  Skipping...\n', fname);
     return;
 end
-
-% Print useful info about the model about to be fitted.
-fprintf('Number of training trials: %d\n', length(seqTrain));
-fprintf('Number of test trials: %d\n', length(seqTest));
-fprintf('Across-group latent dimensionality: %d\n', xDim_across);
-st = 'Within-group latent dimensionalities: ';
-for groupIdx = 1:numGroups
-    st = sprintf('%s%d', st, xDim_within(groupIdx));
-    if groupIdx == numGroups
-       st = sprintf('%s\n', st);
-    else
-       st = sprintf('%s, ', st);
-    end
-end
-fprintf(st);
-fprintf('Observation dimensionality: %d\n', size(seqTrain(1).y,1));
 
 % The following does the heavy lifting for learning and inference.
 if isequal(method,'dlag')

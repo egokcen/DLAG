@@ -10,8 +10,8 @@ function d_shared = findSharedDimCutoff(params, cutoffPC)
 %
 % Arguments:
 %
-%     params  -- Structure containing DLAG model parameters.
-%                Contains the (relevant) fields
+%     params   -- Structure containing DLAG model parameters.
+%                 Contains the (relevant) fields
 % 
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -19,6 +19,8 @@ function d_shared = findSharedDimCutoff(params, cutoffPC)
 %                                    variables
 %                    xDim_within  -- (1 x numGroups) array; number of 
 %                                    within-group latents in each group
+%     cutoffPC -- float; cutoff proportion of shared variance explained 
+%                 (between 0 and 1)
 %
 % Outputs:
 %
@@ -38,6 +40,7 @@ function d_shared = findSharedDimCutoff(params, cutoffPC)
 % Revision history:
 %     11 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     24 May 2020 -- Updated argument documentation.
 
 yDims = params.yDims;
 numGroups = length(yDims);

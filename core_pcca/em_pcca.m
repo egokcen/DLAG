@@ -19,6 +19,8 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
 %     maxIters -- int; maximum number of EM iterations (default: 1e8)
 %     verbose  -- boolean; specifies whether to display status messages
 %                 (default: false)
+%     parallelize -- logical; Here, this setting just determines which 
+%                    status messages will be printed. (default: false)
 %
 % Outputs:
 %     estParams.Cs -- (1 x numGroups) cell array; List of factor loadings 
@@ -34,10 +36,12 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
 %
 % Revision history:
 %     23 Mar 2019 -- Initial full revision.
+%     24 May 2020 -- Updated verbose output messages.
 
-    tolLL      = 1e-8; 
-    maxIters   = 1e8;
-    verbose    = false;
+    tolLL       = 1e-8; 
+    maxIters    = 1e8;
+    verbose     = false;
+    parallelize = false;
     assignopts(who, varargin);
     
     numGroups = length(Ys);
@@ -100,8 +104,8 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
         LLold = LLi;
         ldM = sum(log(diag(chol(MM)))); % (1/2) log-determinant of MM
         LLi = N*const + N*ldM - 0.5*N*sum(sum(MM .* cY));
-        if verbose
-            fprintf('EM iteration %5i lik %8.1f \r', i, LLi);
+        if verbose && ~ parallelize
+            fprintf('EM iteration %3d of %d        lik %f\r', i, maxIters, LLi);
         end
         LL = [LL LLi]; 
         
@@ -126,9 +130,13 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
         end
          
     end
-    
-    if verbose 
-        fprintf('\n');
+  
+    if verbose && ~parallelize
+        if length(LL) < maxIters
+            fprintf('\nLL converged after %d EM iterations.\n', length(LL));
+        else
+            fprintf('\nFitting stopped after maxIters (%d) was reached.\n', maxIters);
+        end 
     end
     
     % Convert joint params into lists of group params

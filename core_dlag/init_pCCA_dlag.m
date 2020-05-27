@@ -44,6 +44,9 @@ function startParams = init_pCCA_dlag(seqTrain,varargin)
 %                         'rbf' -- Radial basis function, or squared
 %                                  exponential kernel
 %                     (default: 'rbf')
+%     parallelize  -- logical; Set to true to use Matlab's parfor construct
+%                     to parallelize each fold and latent dimensionality 
+%                     using multiple cores. (default: false)
 %
 % Outputs:
 %
@@ -81,6 +84,7 @@ function startParams = init_pCCA_dlag(seqTrain,varargin)
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.   
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     15 May 2020 -- Convert data to pCCA-compatible format with seq2pcca
 
 xDim_across   = 3;
 xDim_within   = [];
@@ -90,31 +94,22 @@ startTau      = 2*binWidth; % in units of time
 startDelay    = [];         % in units of time
 startEps      = 1e-3;
 covType       = 'rbf';
+parallelize   = false;
 extraOpts     = assignopts(who, varargin);
-
+numGroups     = length(yDims);
 
 % ========================================
 % Initialize observation model parameters
 % ========================================
-yAll             = [seqTrain.y];
-
-% Check that neuron groupings are valid
-yDim = size(yAll,1);
-assert(yDim == sum(yDims));
-assert(length(xDim_within) == length(yDims));
 
 % Convert data into format compatible with pCCA
-block_idxs = get_block_idxs(yDims);
-numGroups = length(block_idxs);
-Ys = cell(1, numGroups);
-for groupIdx = 1:numGroups
-    currGroup = block_idxs{groupIdx};
-    Ys{groupIdx} = yAll(currGroup(1):currGroup(2),:); 
-end
-[pccaParams, pccaLL] = em_pcca(Ys, xDim_across, extraOpts{:});
+Ys = seq2pcca(seqTrain, yDims, 'datafield', 'y');
+% Fit pCCA model
+[pccaParams, pccaLL] = em_pcca(Ys, xDim_across, ...
+                               'parallelize', parallelize, extraOpts{:});
 
 % Compute the within-group dimensions: Explain the most covariance in each
-% area while remaining uncorrelated to the pCCA dimensions
+% area while remaining uncorrelatyDed to the pCCA dimensions
 C = cell(1,numGroups); % Includes within- and across-group latents for each area
 for groupIdx = 1:numGroups
     currY = Ys{groupIdx};
@@ -137,7 +132,6 @@ startParams.R = diag(diag(blkdiag(pccaParams.Rs{:})));
 
 % Restructure C matrix
 startParams.C = blkdiag(C{:});
-assert(size(startParams.C,1) == yDim);
 
 % Delay matrix
 if isempty(startDelay)

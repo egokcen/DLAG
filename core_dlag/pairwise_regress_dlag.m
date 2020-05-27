@@ -134,7 +134,6 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
         seq(n).(fn)(targetIdxs,:) = Corth(:,1:m) * seqReg(n).xorth(1:m,:) + params.d(targetIdxs);
       end
     end
-    fprintf('Pairwise regression complete for %3d of %d groups\r', i, numRGroups);
     
     % Now compute MSE
     Ytrue = [seq.y];
