@@ -21,7 +21,7 @@ portion of this code for your own purposes.
 
 ## Installation
 
-Simply download and extract the [latest release](https://github.com/egokcen/DLAG/releases/tag/v1.1.0) of this project to your desired local directory.
+Simply download and extract the [latest release](https://github.com/egokcen/DLAG/releases) of this project to your desired local directory.
 
 ## Project wiki
 
