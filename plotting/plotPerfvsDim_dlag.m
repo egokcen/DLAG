@@ -1,6 +1,6 @@
 function plotPerfvsDim_dlag(res,plotAcross,varargin)
 % 
-% plotPerfvsDim_dlag(res,plotAcross...)
+% plotPerfvsDim_dlag(res,plotAcross,...)
 %
 % Description: Plot cross-validated performance metrics vs
 %              latent dimensionality.
@@ -9,31 +9,62 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %
 %     Required:
 %
-%     res -- structure whose i-th entry has fields
+%     res -- structure whose i-th entry has (relevant) fields
 %              xDim_across -- int; across-group latent dimensionality
 %              xDim_within -- (1 x numGroups) array; within-group latent
 %                             dimensionalities for each group
-%              sumLL  -- float; cross-validated log-likelihood
-%              LL     -- float; average cross-validated log-likelihood
-%              LL_sem -- float; standard error of LL across CV folds
-%              R2     -- (1 x 2) array; average cross-validated R^2 in each
-%                        pairwise direction, for the pair in rGroups.
-%              R2_sem -- (1 x 2) array; standard error of R2 across CV folds
-%              R2orth -- (xDim_across x 2) array; average cross-validated
-%                        R^2 error in each direction for reduced DLAG 
-%                        predictions, for the pair in rGroups.
-%              R2orth_sem -- (xDim x 2) array; standard error of R2orth
-%                            across CV folds
-%              MSE    -- (1 x 2) array; average cross-validated 
-%                        mean-squared error in each pairwise direction, for 
-%                        the pair in rGroups.
-%              MSE_sem -- (1 x 2) array; standard error of MSE across CV 
-%                         folds
-%              MSEorth -- (xDim_across x 2) array; average cross-validated 
-%                         mean-squared error in each direction for reduced 
-%                         DLAG predictions, for the pair in rGroups.
-%              MSEorth_sem -- (xDim_across x 2) array; standard error of
-%                         MSE orth across CV folds
+%              sumLL.joint -- float; cross-validated log-likelihood, 
+%                             evaluated on all groups jointly
+%              sumLL.indiv -- (1 x numGroups) array; cross-validated
+%                             log-likelihood, evaluated on each group 
+%                             individually
+%              LL.joint    -- float; average cross-validated
+%                             log-likelihood, evaluated on all groups
+%                             jointly
+%              LL.indiv    -- (1 x numGroups) array; average cross-validated
+%                             log-likelihood, evaluated on each group 
+%                             individually
+%              LL_sem.joint -- float; standard error of LL.joint across CV
+%                              folds
+%              LL_sem.indiv -- (1 x numGroups) array; standard error of
+%                              LL.indiv across CV folds
+%              R2_reg.joint -- float; average cross-validated R^2,
+%                              evaluated jointly across the pair in rGroups
+%              R2_reg.indiv -- (1 x 2) array; average cross-validated R^2 
+%                              in each pairwise direction, for the pair in 
+%                              rGroups
+%              R2_reg_sem.joint -- float; standard error of R2_reg.joint 
+%                                  across CV folds
+%              R2_reg_sem.indiv -- (1 x 2) array; standard error of 
+%                                  R2_reg.indiv across CV folds
+%              MSE_reg.indiv    -- (1 x 2) array; average cross-validated 
+%                                  mean-squared error in each pairwise 
+%                                  direction, for the pair in rGroups.
+%              MSE_reg_sem.indiv -- (1 x 2) array; standard error of 
+%                                   MSE_reg.indiv across CV folds
+%              R2_denoise.joint -- float; average cross-validated R^2,
+%                                  evaluated jointly from denoised 
+%                                  reconstruction across all groups
+%              R2_denoise.indiv -- (1 x numGroups) array; average 
+%                                  cross-validated R^2, evaluated
+%                                  for each group from denoised
+%                                  reconstruction
+%              R2_denoise_sem.joint -- float; standard error of
+%                                      R2_denoise.joint across CV folds
+%              R2_denoise_sem.indiv -- (1 x numGroups) array; standard error 
+%                                      of R2_denoise.indiv across CV folds
+%              MSE_denoise.joint -- float; average cross-validated 
+%                                   mean-squared error, evaluated jointly
+%                                   from denoised reconstruction across 
+%                                   all groups
+%              MSE_denoise.indiv -- (1 x numGroups) array; average 
+%                                   cross-validated mean-squared error,
+%                                   evaluated for each group from denoised
+%                                   reconstruction
+%              MSE_denoise_sem.joint -- float; standard error of
+%                                      MSE_denoise.joint across CV folds
+%              MSE_denoise_sem.indiv -- (1 x numGroups) array; standard error 
+%                                      of MSE_denoise.indiv across CV folds
 %              estParams -- model parameters estimated using all data
 %              rGroups -- (1 x 2) array; the indexes of two groups 
 %                         used to measure generalization performance
@@ -55,12 +86,6 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %                  (default: res(1).xDim_within)
 %     fixAcross -- int; Fixed across-group dimensionality 
 %                  (default: res(1).xDim_across)
-%     plotLL    -- logical; set true to plot data log likelihood 
-%                  (default: true)
-%     plotR2    -- logical; set true to plot R^2 (default: false)
-%     plotMSE   -- logical; set true to plot MSE (default: false)
-%     plotOrth  -- logical; set true to plot R^2 and MSE for the best
-%                  performing DLAG model, orthonormalized. (default: false)
 % 
 % Outputs:
 %     None. (But creates figures)
@@ -73,20 +98,23 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %     13 May 2020 -- 'bestModel' now always derived from models to be
 %                    plotted. As a result, setting 'plotOrth' to true will 
 %                    never result in blank R^2 and MSE plots, as before.
+%     12 Jun 2020 -- Updated for expanded cross-validation metrics.
+%                    Plotting of orthonormalized DLAG performance moved
+%                    elsewhere.
 
 groupIdx = 1;
 fixWithin = res(1).xDim_within;
 fixAcross = res(1).xDim_across;
-plotLL = true;
-plotR2 = false;
-plotMSE = false;
-plotOrth = false;
 assignopts(who, varargin);
 
 numGroups = length(fixWithin);
 numModels = length(res);
-numRGroups = length(res(1).rGroups);   % Number of groups in a regression pair
+rGroups = res(1).rGroups;
 colors = generateColors(); % Generate custom plotting colors
+
+% ====================================================
+% Determine which models' performance will be plotted
+% ====================================================
 
 keepIdxs = [];
 if plotAcross
@@ -125,26 +153,130 @@ res = res(keepIdxs);
 numModels = length(res); % Update the number of remaining models
 
 % Among the kept models, determine the best model
-sumLL = [res.sumLL];
+sumLL = nan(1,numModels);
+for modelIdx = 1:numModels
+    sumLL(modelIdx) = res(modelIdx).sumLL.joint;
+end
 [~, bestModel] = max(sumLL);
 
-% Determine number of subplots, based on which metrics are to be plotted
-numPlots = sum([plotLL plotR2 plotMSE]);
-
+% Set up the figure and subplots
 figure;
-plotIdx = 0;
+numCol = 3;
+numRow = 1 + numGroups;
+
+% ====================================
+% Plot joint cross-validation metrics
+% ====================================
 
 % Plot LL versus latent dimensionality
-if plotLL
-    plotIdx = plotIdx + 1;
-    subplot(1,numPlots,plotIdx);
+plotIdx = 1;
+subplot(numRow,numCol,plotIdx);
+hold on;
+xlabel(xlbl);
+ylabel('Cross-validated LL, joint');
+
+sumLL = nan(1,numModels);
+for modelIdx = 1:numModels
+    sumLL(modelIdx) = res(modelIdx).sumLL.joint;
+end
+plot(xDim, sumLL, 'o-', 'Color', colors.blues{1}, ...
+     'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
+
+% Mark the best model among the plotted models.
+legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
+                     'color', colors.reds{4}, ...
+                     'markerfacecolor', colors.reds{4}, ...
+                     'markersize', 10);
+legendLabels = 'best model';
+legend(legendEntries, legendLabels, 'Location', 'southeast');
+hold off;
+
+% Plot R2 versus latent dimensionality
+plotIdx = plotIdx + 1;
+subplot(numRow,numCol,plotIdx);
+hold on;
+legendEntries = [];
+legendLabels = {'denoised', 'regression'};
+
+% Based on denoised prediction
+R2_denoise = nan(1,numModels);
+R2_denoise_sem = nan(1,numModels);
+for modelIdx = 1:numModels
+    R2_denoise(modelIdx) = res(modelIdx).R2_denoise.joint;
+    R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.joint;
+end
+legendEntries(end+1) = errorbar(xDim, R2_denoise, R2_denoise_sem, 'o-', ...
+    'linewidth', 1.5, 'Color', colors.grays{1}, ...
+    'MarkerFaceColor', colors.grays{1});
+
+% Based on pairwise regression
+R2_reg = nan(1,numModels);
+R2_reg_sem = nan(1,numModels);
+for modelIdx = 1:numModels
+    R2_reg(modelIdx) = res(modelIdx).R2_reg.joint;
+    R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.joint;
+end
+legendEntries(end+1) = errorbar(xDim, R2_reg, R2_reg_sem, 'o-', ...
+    'linewidth', 1.5, 'Color', colors.reds{3}, ...
+    'MarkerFaceColor', colors.reds{3});
+
+xlabel(xlbl);
+ylabel('Cross-validated R^2, joint');
+legend(legendEntries, legendLabels, 'Location', 'southeast');
+hold off;
+
+% Plot MSE versus latent dimensionality
+plotIdx = plotIdx + 1;
+subplot(numRow,numCol,plotIdx);
+hold on;
+legendEntries = [];
+legendLabels = {'denoised', 'regression'};
+
+% Based on denoised prediction
+MSE_denoise = nan(1,numModels);
+MSE_denoise_sem = nan(1,numModels);
+for modelIdx = 1:numModels
+    MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.joint;
+    MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.joint;
+end
+legendEntries(end+1) = errorbar(xDim, MSE_denoise, MSE_denoise_sem, 'o-', ...
+    'linewidth', 1.5, 'Color', colors.grays{1}, ...
+    'MarkerFaceColor', colors.grays{1});
+
+% Based on pairwise regression
+MSE_reg = nan(1,numModels);
+MSE_reg_sem = nan(1,numModels);
+for modelIdx = 1:numModels
+    MSE_reg(modelIdx) = res(modelIdx).MSE_reg.joint;
+    MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.joint;
+end
+legendEntries(end+1) = errorbar(xDim, MSE_reg, MSE_reg_sem, 'o-', ...
+    'linewidth', 1.5, 'Color', colors.reds{3}, ...
+    'MarkerFaceColor', colors.reds{3});
+
+xlabel(xlbl);
+ylabel('Cross-validated MSE, joint');
+legend(legendEntries, legendLabels, 'Location', 'northeast');
+hold off;
+
+% =========================================
+% Plot individual cross-validation metrics
+% =========================================
+for groupIdx = 1:numGroups
+    
+    % Plot LL versus latent dimensionality
+    plotIdx = groupIdx*numCol + 1;
+    subplot(numRow,numCol,plotIdx);
     hold on;
     xlabel(xlbl);
-    ylabel('Cross-validated LL');
-    
-    sumLL = [res.sumLL];
-    plot(xDim, sumLL, 'o-', 'Color', colors.grays{1}, ...
-         'MarkerFaceColor', colors.grays{1}, 'linewidth', 1.5);
+    ylabel(sprintf('Cross-validated LL, group %d', groupIdx));
+
+    sumLL = nan(1,numModels);
+    for modelIdx = 1:numModels
+        sumLL(modelIdx) = res(modelIdx).sumLL.indiv(groupIdx);
+    end
+    plot(xDim, sumLL, 'o-', 'Color', colors.blues{1}, ...
+         'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
 
     % Mark the best model among the plotted models.
     legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
@@ -154,97 +286,84 @@ if plotLL
     legendLabels = 'best model';
     legend(legendEntries, legendLabels, 'Location', 'southeast');
     hold off;
-end
-
-% Plot R2 versus latent dimensionality
-if plotR2
-    plotIdx = plotIdx + 1;
-    subplot(1,numPlots,plotIdx);
-    hold on;
-    rcolors = {colors.grays{1}, colors.grays{6}};
     
-    % Plot R^2 for prediction in both directions
+    % Plot R2 versus latent dimensionality
+    plotIdx = plotIdx + 1;
+    subplot(numRow,numCol,plotIdx);
+    hold on;
     legendEntries = [];
     legendLabels = {};
-    if ~plotOrth
-        for rIdx = 1:numRGroups
-            R2 = nan(1,numModels);
-            R2_sem = nan(1,numModels);
-            for modelIdx = 1:numModels
-                R2(modelIdx) = res(modelIdx).R2(rIdx);
-                R2_sem(modelIdx) = res(modelIdx).R2_sem(rIdx);
-            end
-            legendEntries(end+1) = errorbar(xDim, R2, R2_sem, 'o-', ...
-                'linewidth', 1.5, 'Color', rcolors{rIdx}, ...
-                'MarkerFaceColor', rcolors{rIdx});
-            predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
-            legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
-        end
+
+    % Based on denoised prediction
+    R2_denoise = nan(1,numModels);
+    R2_denoise_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        R2_denoise(modelIdx) = res(modelIdx).R2_denoise.indiv(groupIdx); 
+        R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.indiv(groupIdx);
     end
-    
-    if plotOrth
-        xDim = 1:res(bestModel).xDim_across; % xDim potentially changes here
-        for rIdx = 1:numRGroups
-            R2orth = res(bestModel).R2orth(:,rIdx);
-            R2orth_sem = res(bestModel).R2orth_sem(:,rIdx);
-            legendEntries(end+1) = errorbar(xDim, R2orth, R2orth_sem, 'o-', ...
-                'linewidth', 1.5, 'Color', rcolors{rIdx}, 'MarkerFaceColor', rcolors{rIdx});
-            predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
-            legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
+    legendEntries(end+1) = errorbar(xDim, R2_denoise, R2_denoise_sem, 'o-', ...
+        'linewidth', 1.5, 'Color', colors.grays{1}, ...
+        'MarkerFaceColor', colors.grays{1});
+    legendLabels{end+1} = 'denoised';
+
+    % Based on pairwise regression
+    if ismember(groupIdx,rGroups)
+        % Get predictions conditioned on the other group in the pair
+        predGroup = setdiff(rGroups, groupIdx);
+        predIdx = find(rGroups == predGroup);
+        R2_reg = nan(1,numModels);
+        R2_reg_sem = nan(1,numModels);
+        for modelIdx = 1:numModels
+            R2_reg(modelIdx) = res(modelIdx).R2_reg.indiv(predIdx); 
+            R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.indiv(predIdx);
         end
-        % Overwrite the x-axis label
-        xlbl = {'Across-group dimensionality'; ...
-                '(Best model, orthonormalized)'};
+        legendEntries(end+1) = errorbar(xDim, R2_reg, R2_reg_sem, 'o-', ...
+            'linewidth', 1.5, 'Color', colors.reds{3}, ...
+            'MarkerFaceColor', colors.reds{3});
+        legendLabels{end+1} = 'regression';
     end
     xlabel(xlbl);
-    ylabel('Cross-validated R^2');
+    ylabel(sprintf('Cross-validated R^2, group %d', groupIdx));
     legend(legendEntries, legendLabels, 'Location', 'southeast');
     hold off;
-end
 
-% Plot MSE versus latent dimensionality
-if plotMSE
+    % Plot MSE versus latent dimensionality
     plotIdx = plotIdx + 1;
-    subplot(1,numPlots,plotIdx);
+    subplot(numRow,numCol,plotIdx);
     hold on;
-    rcolors = {colors.grays{1}, colors.grays{6}};
-    
-    % Plot MSE for prediction in both directions
     legendEntries = [];
     legendLabels = {};
-    if ~plotOrth
-        for rIdx = 1:numRGroups
-            MSE = nan(1,numModels);
-            MSE_sem = nan(1,numModels);
-            for modelIdx = 1:numModels
-                MSE(modelIdx) = res(modelIdx).MSE(rIdx);
-                MSE_sem(modelIdx) = res(modelIdx).MSE_sem(rIdx);
-            end
-            legendEntries(end+1) = errorbar(xDim, MSE, MSE_sem, 'o-', ...
-                'linewidth', 1.5, 'Color', rcolors{rIdx}, ...
-                'MarkerFaceColor', rcolors{rIdx});
-            predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
-            legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
-        end
+
+    % Based on denoised prediction
+    MSE_denoise = nan(1,numModels);
+    MSE_denoise_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.indiv(groupIdx); 
+        MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.indiv(groupIdx);
     end
-    
-    if plotOrth
-        xDim = 1:res(bestModel).xDim_across; % xDim potentially changes here
-        for rIdx = 1:numRGroups
-            MSEorth = res(bestModel).MSEorth(:,rIdx);
-            MSEorth_sem = res(bestModel).MSEorth_sem(:,rIdx);
-            legendEntries(end+1) = errorbar(xDim, MSEorth, MSEorth_sem, ...
-                'o-', 'linewidth', 1.5, 'Color', rcolors{rIdx}, ...
-                'MarkerFaceColor', rcolors{rIdx});
-            predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
-            legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
+    legendEntries(end+1) = errorbar(xDim, MSE_denoise, MSE_denoise_sem, 'o-', ...
+        'linewidth', 1.5, 'Color', colors.grays{1}, ...
+        'MarkerFaceColor', colors.grays{1});
+    legendLabels{end+1} = 'denoised';
+
+    % Based on pairwise regression
+    if ismember(groupIdx,rGroups)
+        % Get predictions conditioned on the other group in the pair
+        predGroup = setdiff(rGroups, groupIdx);
+        predIdx = find(rGroups == predGroup);
+        MSE_reg = nan(1,numModels);
+        MSE_reg_sem = nan(1,numModels);
+        for modelIdx = 1:numModels
+            MSE_reg(modelIdx) = res(modelIdx).MSE_reg.indiv(predIdx); 
+            MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.indiv(predIdx);
         end
-        % Overwrite the x-axis label
-        xlbl = {'Across-group dimensionality'; ...
-                '(Best model, orthonormalized)'};
+        legendEntries(end+1) = errorbar(xDim, MSE_reg, MSE_reg_sem, 'o-', ...
+            'linewidth', 1.5, 'Color', colors.reds{3}, ...
+            'MarkerFaceColor', colors.reds{3});
+        legendLabels{end+1} = 'regression';
     end
     xlabel(xlbl);
-    ylabel('Cross-validated MSE');
+    ylabel(sprintf('Cross-validated MSE, group %d', groupIdx));
     legend(legendEntries, legendLabels, 'Location', 'northeast');
     hold off;
 end

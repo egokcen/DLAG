@@ -1,4 +1,4 @@
-function [seq, MSE, R2] = denoise_dlag(seq, params)
+function [seq, LL, MSE, MSEorth, R2, R2orth] = denoise_dlag(seq, params)
 %
 % [seq, MSE, R2] = denoise_dlag(seq, params)
 %
@@ -45,39 +45,69 @@ function [seq, MSE, R2] = denoise_dlag(seq, params)
 %
 %     seq     -- data structure with new fields yDenoised.
 %                seq(n).yDenoised has the same dimensions as seq(n).y.
+%     LL      -- float; data log-likelihood using the full DLAG model
 %     MSE     -- float; mean-squared reconstruction error
+%     MSEorth -- (xDim x 1) array; mean-squared error for the 
+%                orthonormalized DLAG model.
 %     R2      -- float; R^2 reconstruction error
+%     R2orth  -- (xDim x 1) array; R^2 reconstruction error for the
+%                orthonormalized DLAG model.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     11 Apr 2020 -- Initial full revision. 
+%     08 Jun 2020 -- Updated to include denoising via the orthonormalized
+%                    model.
 
     yDims = params.yDims;
     yDim = sum(yDims);
+    numGroups = length(yDims);
+    xDim = sum([numGroups*params.xDim_across, params.xDim_within]); % ALL latent dimensions
 
-    fn = sprintf('yDenoised');
+    % Initialize output structures
     for n = 1:length(seq)
-      seq(n).(fn) = nan(yDim, seq(n).T);
+        for m = 1:xDim 
+            fn = sprintf('yDenoisedOrth%02d', m);
+            seq(n).(fn) = nan(yDim, seq(n).T);
+        end
     end
+    
+    MSEorth = nan(xDim,1);
+    R2orth = nan(xDim,1);
 
     % Infer latent trajectories
-    seq = exactInferenceWithLL_dlag(seq, params, 'getLL', false);
+    [seq, LL] = exactInferenceWithLL_dlag(seq, params, 'getLL', true);
+    
+    % Orthonormalize latents
+    Xtemp = [seq.xsm];
+    [Xorth, Corth] = orthogonalize(Xtemp, params.C);
+    seq = segmentByTrial(seq, Xorth, 'xorth');
     
     % Project latents back into observation space
     for n = 1:length(seq)
-        seq(n).(fn) = params.C * seq(n).xsm + params.d;
+        for m = 1:xDim
+            fn = sprintf('yDenoisedOrth%02d', m);
+            seq(n).(fn) = Corth(:,1:m) * seq(n).xorth(1:m,:) + params.d;
+        end
     end
     
     % Now compute MSE and R^2
     Ytrue = [seq.y];
-    Ypred = [seq.(fn)];
-    % MSE
-    MSE = immse(Ypred, Ytrue);
-    % R2
-    RSS = sum( sum( ( Ytrue - Ypred ).^2, 1 ) );
-    TSS = sum( sum( ( Ytrue - repmat( mean(Ytrue,2), [1 size(Ytrue,2)] ) ).^2, 1 ) );
-    R2 = 1 - RSS / TSS;
+    % Orthonormalized DLAG performance
+    for m = 1:xDim
+        fn = sprintf('yDenoisedOrth%02d', m);
+        Ypred = [seq.(fn)];
+        % MSE
+        MSEorth(m) = immse(Ypred, Ytrue);
+        % R2
+        RSS = sum( sum( ( Ytrue - Ypred ).^2, 1 ) );
+        TSS = sum( sum( ( Ytrue - repmat( mean(Ytrue,2), [1 size(Ytrue,2)] ) ).^2, 1 ) );
+        R2orth(m) = 1 - RSS / TSS;
+    end
+    % Full model performance
+    MSE = MSEorth(end);
+    R2 = R2orth(end);
 
 end

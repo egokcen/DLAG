@@ -1,14 +1,14 @@
-function d_shared = findSharedDimCutoff(params, cutoffPC)
+function d_shared = findSharedDimCutoff(params, cutoffPC, varargin)
 %
-% d_shared = findSharedDimCutoff(params, cutoffPC)
+% d_shared = findSharedDimCutoff(params, cutoffPC, ...)
 %
-% Description: Find the number of across-group dimensions that explain
-%              a certain percentage of across-group shared variance. Also
-%              find the number of within-group dimensions that explain a
-%              certain percentage of within-group shared variance, for each
-%              group individually.
+% Description: Find the number of overall dimensions (within or across) 
+%              that explain a certain percentage of shared variance, 
+%              jointly across all groups and for each group individually.
 %
 % Arguments:
+% 
+%     Required:
 %
 %     params   -- Structure containing DLAG model parameters.
 %                 Contains the (relevant) fields
@@ -21,18 +21,21 @@ function d_shared = findSharedDimCutoff(params, cutoffPC)
 %                                    within-group latents in each group
 %     cutoffPC -- float; cutoff proportion of shared variance explained 
 %                 (between 0 and 1)
+% 
+%     Optional:
+%
+%     plotSpec -- logical; if true, plot the spectra and cumulative shared
+%                 variance explained. (default: false)
 %
 % Outputs:
 %
 %     d_shared -- structure with the following fields:
-%                 across -- int; number of dimensions required
-%                           to explain cutoffPC of the across-group shared
-%                           variance
-%                 within -- (1 x numGroups) array; number of dimensions
+%                 joint -- int; number of dimensions required
+%                           to explain cutoffPC of the joint shared
+%                           variance across all groups
+%                 indiv -- (1 x numGroups) array; number of dimensions
 %                           required to explain cutoffPC of the
-%                           within-group shared variance for each group.
-%                           within(i) will be NaN wherever xDim_within(i)
-%                           is 0.
+%                           shared variance for each group individually.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -41,6 +44,14 @@ function d_shared = findSharedDimCutoff(params, cutoffPC)
 %     11 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
 %     24 May 2020 -- Updated argument documentation.
+%     17 Jun 2020 -- Major revision to compute cutoffs for overall
+%                    dimensions, rather than within- or across-group only.
+%                    Within- and across-group only cutoffs are poorly
+%                    defined, since within- and across-group dimensions
+%                    are, in general, correlated.
+
+plotSpec = false;
+extraOpts     = assignopts(who, varargin);
 
 yDims = params.yDims;
 numGroups = length(yDims);
@@ -50,10 +61,12 @@ xDim_within = params.xDim_within;
 obs_block_idxs = get_block_idxs(yDims); % Index rows of C
 lat_block_idxs = get_block_idxs(xDim_across + xDim_within); % Index cols of C
 
-% Stack across-group dimensions into one matrix, 
-% and find d_shared at the end
+% Reformat the loading matrix C to consolidate across-group dimensions
+% into the same (appropiate) columns, then compute d_shared at the end.
 C_across = []; 
-d_shared.within = nan(1,numGroups);
+d_shared.indiv = nan(1,numGroups);
+shared_var.indiv = cell(1,numGroups);
+cumulative_var.indiv = cell(1,numGroups);
 for groupIdx = 1:numGroups
     
     % Indices of the current group observations
@@ -69,41 +82,100 @@ for groupIdx = 1:numGroups
     % Collect the specified across-group loading
     % dimensions for the current group
     C_across = [C_across; params.C(obsIdxs,acrossLatIdxs)];
-    
-    % Only deal with within-group latents if there are any.
+
+    % Collect all latent dimensions for the current group
+    C_indiv = params.C(obsIdxs,latIdxs);
+
+    % Get the eigenvalue spectrum of the current group's loading matrix
+    [~, D] = eig(C_indiv*C_indiv.');
+    [spectrum,~] = sort(diag(D), 'descend');
+
+    % Now find the smallest number of dimensions required to explain
+    % shared variance within a certain cutoff
+    shared_var.indiv{groupIdx} = spectrum ./ sum(spectrum);
+    cumulative_var.indiv{groupIdx} = cumsum(spectrum) ./ sum(spectrum);
+    d_shared.indiv(groupIdx) = sum(cumulative_var.indiv{groupIdx} <= cutoffPC);
+
+end
+
+% Construct the restructured joint loading matrix
+C_joint = C_across;
+for groupIdx = 1:numGroups
     if xDim_within(groupIdx) > 0
+        % Indices of current group latents
+        currLatBlock = lat_block_idxs{groupIdx};
+        latIdxs = currLatBlock(1):currLatBlock(2);
+
         % Indices of current within-group latents
         withinLatIdxs = latIdxs(xDim_across+1:end);
-        % Collect the specified within-group loading
-        % dimensions for the current group
-        C_within = params.C(obsIdxs,withinLatIdxs);
-
-        % Get the eigenvalue spectrum of the current within-group loading matrix
-        [~, D] = eig(C_within*C_within.');
-        [spectrum,~] = sort(diag(D), 'descend');
-
-        % Now find the smallest number of dimensions required to explain
-        % within-group shared variance within a certain cutoff
-        for d = 1:xDim_within(groupIdx)
-            shared_var = sum(spectrum(1:d))/sum(spectrum);
-            if shared_var >= cutoffPC
-                break; 
-            end
-        end
-        d_shared.within(groupIdx) = d;
+        
+        C_joint = [C_joint params.C(:,withinLatIdxs)];
     end
 end
 
 % Get the eigenvalue spectrum of the across-group loading matrix
-[~, D] = eig(C_across*C_across.');
+[~, D] = eig(C_joint*C_joint.');
 [spectrum,~] = sort(diag(D), 'descend');
 
 % Now find the smallest number of dimensions required to explain
-% across-group shared variance within a certain cutoff
-for d = 1:xDim_across
-    shared_var = sum(spectrum(1:d))/sum(spectrum);
-    if shared_var >= cutoffPC
-        break; 
+% shared variance within a certain cutoff
+shared_var.joint = spectrum ./ sum(spectrum);
+cumulative_var.joint = cumsum(spectrum) ./ sum(spectrum);
+d_shared.joint = sum(cumulative_var.joint <= cutoffPC);
+
+if plotSpec
+    colors = generateColors(); % Generate custom plotting colors
+    
+    % Plot the eigenspectra and cumulative shared variance explained
+    figure;
+    numCol = 2;
+    numRow = numGroups + 1;
+    
+    % Jointly across groups
+    subplot(numRow,numCol,1);
+    hold on;
+    plot(1:length(shared_var.joint), shared_var.joint, ...
+         'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+    xlabel('Dimension, all groups');
+    ylabel('Frac. shared var. exp.');
+    xlim([0 length(shared_var.joint)+1]);
+    
+    subplot(numRow,numCol,2);
+    hold on;
+    plot(1:length(cumulative_var.joint), cumulative_var.joint, ...
+         'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+    line([0 length(cumulative_var.joint)+1], [cutoffPC cutoffPC], ...
+         'linestyle', '--', 'color', colors.reds{4}, 'linewidth', 1.5);
+    plot(d_shared.joint, cumulative_var.joint(d_shared.joint), ...
+         'p', 'color', colors.reds{4}, 'markerfacecolor', ...
+         colors.reds{4}, 'markersize', 10);
+    xlim([0 length(cumulative_var.joint)+1]);
+    xlabel('No. dimensions, all groups');
+    ylabel('Cumulative shared var. exp.');
+    
+    % For each group individually
+    for groupIdx = 1:numGroups
+        subplot(numRow,numCol,numCol*groupIdx+1);
+        hold on;
+        plot(1:length(shared_var.indiv{groupIdx}), shared_var.indiv{groupIdx}, ...
+             'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+        xlabel(sprintf('Dimension, group %d', groupIdx));
+        ylabel('Frac. shared var. exp.');
+        xlim([0 length(shared_var.indiv{groupIdx})+1]);
+
+        subplot(numRow,numCol,numCol*groupIdx+2);
+        hold on;
+        plot(1:length(cumulative_var.indiv{groupIdx}), cumulative_var.indiv{groupIdx}, ...
+             'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+        line([0 length(cumulative_var.indiv{groupIdx})+1], [cutoffPC cutoffPC], ...
+         'linestyle', '--', 'color', colors.reds{4}, 'linewidth', 1.5);
+        plot(d_shared.indiv(groupIdx), cumulative_var.indiv{groupIdx}(d_shared.indiv(groupIdx)), ...
+         'p', 'color', colors.reds{4}, 'markerfacecolor', colors.reds{4}, ...
+         'markersize', 10);
+        xlim([0 length(cumulative_var.indiv{groupIdx})+1]);
+        xlabel(sprintf('No. dimensions, group %d', groupIdx));
+        ylabel('Cumulative shared var. exp.');
+        
     end
+   
 end
-d_shared.across = d;

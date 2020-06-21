@@ -81,6 +81,7 @@ function dlagEngine(seqTrain,seqTest,fname,varargin)
 %
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.
+%     09 Jun 2020 -- Expanded metrics of generalization performance.
 
 xDim_across   = 3;
 xDim_within   = [];
@@ -95,6 +96,7 @@ covType       = 'rbf';
 parallelize   = false;
 saveData      = false;
 extraOpts     = assignopts(who, varargin);
+numGroups     = length(yDims);
 
 % For compute efficiency, train on equal-length segments of trials
 seqTrainCut = cutTrials(seqTrain, extraOpts{:});
@@ -132,12 +134,31 @@ end
 % Assess generalization performance
 % ==================================
 if ~isempty(seqTest)
+  %%% Conditional statistics (leave out select populations)
     % Pairwise regression on test data
-    [seqTest, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seqTest, ...
-        estParams, 1:xDim_across, rGroups);
-    % Log-likelihood of test data
-    [seqTest, LLtest] = exactInferenceWithLL_dlag(seqTest,...
-        estParams, 'getLL', true);
+    [~, MSE_reg, MSEorth_reg, R2_reg, R2orth_reg] ...
+        = pairwise_regress_dlag(seqTest, estParams, 1:xDim_across, rGroups);
+    
+  %%% Joint statistics (evaluated on all populations jointly)
+    % Log-likelihood and reconstruction error on test data
+    % Including all types of latents (within and across)
+    [~, LLtest.joint, ...
+     MSE_denoise.joint, ~, ...
+     R2_denoise.joint, ~] = denoise_dlag(seqTest, estParams);
+ 
+  %%% Marginal statistics (evaluated on each population individually)
+    % Partition input data and params according to observation groups.
+    groupSeq = partitionObs(seqTest, yDims);
+    groupParams = partitionParams_dlag(estParams);
+    % Log-likelihood and reconstruction error on test data
+    for groupIdx = 1:numGroups
+        % Including all types of latents (within and across) 
+        [~, LLtest.indiv(groupIdx), ...
+         MSE_denoise.indiv(groupIdx), ...
+         MSEorth_denoise.indiv{groupIdx}, ...
+         R2_denoise.indiv(groupIdx), ...
+         R2orth_denoise.indiv{groupIdx}] = denoise_dlag(groupSeq{groupIdx}, groupParams{groupIdx});
+    end
 end
 
 % ===========
@@ -151,6 +172,9 @@ end
 
 % Remove redundant variables before saving.
 vars = vars(~ismember(vars, {'varargin'}));
+% Remove other unwanted variables
+vars = vars(~ismember(vars, {'groupSeq', 'groupParams', 'numGroups', ...
+                             'groupIdx'}));
 % If saveData is true, then we'll write seqTrain, seqTest, seqTrainCut. 
 % Otherwise, we won't.
 if ~saveData

@@ -5,7 +5,10 @@ function [seq, Corth] = orthonormalizeWithinGroups(seq, params, varargin)
 % Description: Orthonormalize the latent trajectories inferred by a DLAG
 %              model according to shared variance explained within a group
 %              (using within-group dimensions, across-group dimensions, or
-%              both).
+%              both). Note that, in general, within- and across-group
+%              dimensions are correlated. So, for example, orthonormalizing
+%              with respect to only across-group dimensions does not
+%              necessarily exclude within-group activity, and vice versa.
 %
 % Arguments:
 %
@@ -66,6 +69,9 @@ function [seq, Corth] = orthonormalizeWithinGroups(seq, params, varargin)
 % Revision history:
 %     11 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     18 Jun 2020 -- Updated description to warn about interpreting
+%                    trajectories orthonormalized with respect to only 
+%                    within- or across-group dimensions.
 
 includeAcross = true;
 includeWithin = true;

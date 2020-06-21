@@ -46,7 +46,7 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %
 %     maxIters  -- int; number of EM iterations to run (default: 1e6)
 %     tolLL     -- float; stopping criterion #1 for EM (based on LL) 
-%                  (default: 1e-8)
+%                  (default: 1e-7)
 %     tolParam  -- float; stopping criterion #2 for EM (based on delays and
 %                  timescales; i.e., if across-group delays and timescales 
 %                  stop changing, stop training.) (default: -Inf)
@@ -125,7 +125,7 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
            
 % Optional arguments
 maxIters     = 1e6;
-tolLL        = 1e-8;
+tolLL        = 1e-7;
 tolParam     = -Inf;
 freqLL       = 10;
 freqParam    = 100;

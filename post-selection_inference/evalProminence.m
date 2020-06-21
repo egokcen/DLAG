@@ -85,6 +85,7 @@ function prom = evalProminence(seq, params, dimGroups_across, dimGroups_within)
 %
 % Revision history:
 %     14 May 2020 -- Initial full revision.
+%     17 Jun 2020 -- Updated to reflect changes to denoise_dlag.m
 
 numGroups = length(dimGroups_within);
 xDim_across = params.xDim_across;
@@ -111,11 +112,9 @@ for groupIdx = 1:numGroups
     allWithin{groupIdx} = 1:xDim_within(groupIdx); 
 end
 
-% Evaluate the likelihood of the full model, to provide a baseline.
-[~, LL_full] = exactInferenceWithLL_dlag(seq, params, 'getLL', true);
-
-% Evaluate the variance explained by the full model, to provide a baseline.
-[~, ~, R2_full] = denoise_dlag(seq, params);
+% Evaluate the likelihood and variance explained by the full model, to 
+% provide a baseline.
+[~, LL_full, ~, ~, R2_full, ~] = denoise_dlag(seq, params);
 
 % Evaluate across-group prominence
 for dimIdx = 1:length(dimGroups_across)
@@ -144,8 +143,7 @@ for dimIdx = 1:length(dimGroups_across)
         R2_sub = 1 - RSS / TSS;
     else
         % Evaluate prominence normally
-        [~, LL_sub] = exactInferenceWithLL_dlag(seq, subparams, 'getLL', true);
-        [~, ~, R2_sub] = denoise_dlag(seq, subparams);
+        [~, LL_sub, ~, ~, R2_sub, ~] = denoise_dlag(seq, subparams);
     end
     % Store results
     prom.across.LL(dimIdx) = LL_full - LL_sub;
@@ -161,8 +159,7 @@ for groupIdx = 1:numGroups
         keptWithin{groupIdx} = setdiff(allWithin{groupIdx},dimGroup);
         subparams = getSubsetParams_dlag(params, allAcross, keptWithin);
         % Evaluate prominence
-        [~, LL_sub] = exactInferenceWithLL_dlag(seq, subparams, 'getLL', true);
-        [~, ~, R2_sub] = denoise_dlag(seq, subparams);
+        [~, LL_sub, ~, ~, R2_sub, ~] = denoise_dlag(seq, subparams);
         % Store results
         prom.within.LL{groupIdx}(dimIdx) = LL_full - LL_sub;
         prom.within.VE{groupIdx}(dimIdx) = (R2_full - R2_sub) / R2_full;
