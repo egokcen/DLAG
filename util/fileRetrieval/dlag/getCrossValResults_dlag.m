@@ -3,8 +3,7 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 % [res, bestModel] = getCrossValResults_dlag(runIdx,...)
 %
 % Description: Go through cross-validated DLAG models corresponding to run 
-%              runIdx, extract their cross-validated performance 
-%              (log-likelihood; MSE and R^2 for pairwise regression), and
+%              runIdx, extract their cross-validated performance, and
 %              determine the best-performing model.
 % Arguments:
 %
@@ -25,27 +24,92 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %              xDim_across -- int; across-group latent dimensionality
 %              xDim_within -- (1 x numGroups) array; within-group latent
 %                             dimensionalities for each group
-%              sumLL  -- float; cross-validated log-likelihood
-%              LL     -- float; average cross-validated log-likelihood
-%              LL_sem -- float; standard error of LL across CV folds
-%              R2     -- (1 x 2) array; average cross-validated R^2 in each
-%                        pairwise direction, for the pair in rGroups.
-%              R2_sem -- (1 x 2) array; standard error of R2 across CV folds
-%              R2orth -- (xDim_across x 2) array; average cross-validated
-%                        R^2 error in each direction for reduced DLAG 
-%                        predictions, for the pair in rGroups.
-%              R2orth_sem -- (xDim x 2) array; standard error of R2orth
-%                            across CV folds
-%              MSE    -- (1 x 2) array; average cross-validated 
-%                        mean-squared error in each pairwise direction, for 
-%                        the pair in rGroups.
-%              MSE_sem -- (1 x 2) array; standard error of MSE across CV 
-%                         folds
-%              MSEorth -- (xDim_across x 2) array; average cross-validated 
-%                         mean-squared error in each direction for reduced 
-%                         DLAG predictions, for the pair in rGroups.
-%              MSEorth_sem -- (xDim_across x 2) array; standard error of
-%                         MSE orth across CV folds
+%              sumLL.joint -- float; cross-validated log-likelihood, 
+%                             evaluated on all groups jointly
+%              sumLL.indiv -- (1 x numGroups) array; cross-validated
+%                             log-likelihood, evaluated on each group 
+%                             individually
+%              LL.joint    -- float; average cross-validated
+%                             log-likelihood, evaluated on all groups
+%                             jointly
+%              LL.indiv    -- (1 x numGroups) array; average cross-validated
+%                             log-likelihood, evaluated on each group 
+%                             individually
+%              LL_sem.joint -- float; standard error of LL.joint across CV
+%                              folds
+%              LL_sem.indiv -- (1 x numGroups) array; standard error of
+%                              LL.indiv across CV folds
+%              R2_reg.joint -- float; average cross-validated R^2,
+%                              evaluated jointly across the pair in rGroups
+%              R2_reg.indiv -- (1 x 2) array; average cross-validated R^2 
+%                              in each pairwise direction, for the pair in 
+%                              rGroups
+%              R2_reg_sem.joint -- float; standard error of R2_reg.joint 
+%                                  across CV folds
+%              R2_reg_sem.indiv -- (1 x 2) array; standard error of 
+%                                  R2_reg.indiv across CV folds
+%              R2orth_reg.indiv -- (xDim_across x 2) array; average 
+%                                  cross-validated R^2 error in each 
+%                                  direction for orthonormalized DLAG 
+%                                  predictions, for the pair in rGroups.
+%              R2orth_reg_sem.indiv -- (xDim_across x 2) array; standard error 
+%                                      of R2orth_reg.indiv across CV folds
+%              MSE_reg.joint -- float; average cross-validated mean-squared
+%                               error, evaluated jointly across the pair in
+%                               rGroups
+%              MSE_reg.indiv     -- (1 x 2) array; average cross-validated 
+%                                   mean-squared error in each pairwise 
+%                                   direction, for the pair in rGroups.
+%              MSE_reg_sem.joint -- float; standard error of MSE_reg.joint 
+%                                   across CV folds
+%              MSE_reg_sem.indiv -- (1 x 2) array; standard error of 
+%                                   MSE_reg.indiv across CV folds
+%              MSEorth_reg.indiv -- (xDim_across x 2) array; average 
+%                                   cross-validated mean-squared error in 
+%                                   each direction for orthonormalized DLAG 
+%                                   predictions, for the pair in rGroups.
+%              MSEorth_reg_sem.indiv -- (xDim_across x 2) array; standard 
+%                                       error of MSEorth_reg.indiv across
+%                                       CV folds
+%              R2_denoise.joint -- float; average cross-validated R^2,
+%                                  evaluated jointly from denoised 
+%                                  reconstruction across all groups
+%              R2_denoise.indiv -- (1 x numGroups) array; average 
+%                                  cross-validated R^2, evaluated for each 
+%                                  group from denoised reconstruction
+%              R2_denoise_sem.joint -- float; standard error of
+%                                      R2_denoise.joint across CV folds
+%              R2_denoise_sem.indiv -- (1 x numGroups) array; standard error 
+%                                      of R2_denoise.indiv across CV folds
+%              R2orth_denoise.indiv -- (1 x numGroups) cell array;
+%                                      average cross-validated R^2 for the 
+%                                      orthonormalized DLAG model, evaluated
+%                                      for each group from denoised
+%                                      reconstruction
+%              R2orth_denoise_sem.indiv -- (1 x numGroups) cell array; 
+%                                      standard error of 
+%                                      R2orth_denoise.indiv across CV folds
+%              MSE_denoise.joint -- float; average cross-validated 
+%                                   mean-squared error, evaluated jointly
+%                                   from denoised reconstruction across 
+%                                   all groups
+%              MSE_denoise.indiv -- (1 x numGroups) array; average 
+%                                   cross-validated mean-squared error, 
+%                                   evaluated for each group from denoised
+%                                   reconstruction
+%              MSE_denoise_sem.joint -- float; standard error of
+%                                       MSE_denoise.joint across CV folds
+%              MSE_denoise_sem.indiv -- (1 x numGroups) array; standard 
+%                                       error of MSE_denoise.indiv across 
+%                                       CV folds
+%              MSEorth_denoise.indiv -- (1 x numGroups) cell array;
+%                                       average cross-validated mean-squared 
+%                                       error for the orthonormalized DLAG 
+%                                       model, evaluated for each group 
+%                                       from denoised reconstruction
+%              MSEorth_denoise_sem.indiv -- (1 x numGroups) cell array; 
+%                                      standard error of 
+%                                      MSEorth_denoise.indiv across CV folds
 %              estParams -- model parameters estimated using all data
 %              rGroups -- (1 x 2) array; the indexes of two groups 
 %                         used to measure generalization performance
@@ -59,10 +123,12 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 % Revision history:
 %     09 Apr 2020 -- Initial full revision.
 %     23 May 2020 -- Added warning for models with errors during fitting.
+%     11 Jun 2020 -- Updated for expanded cross-validation metrics.
 
 baseDir  = '.';
 assignopts(who, varargin);
 res = [];
+bestModel = [];
 
 runDir = sprintf('%s/mat_results/run%03d', baseDir, runIdx);   
 if ~isdir(runDir)
@@ -74,6 +140,7 @@ end
 
 if isempty(D)
     fprintf('ERROR: No valid files.  Exiting...\n');
+    return;
 end
 
 for i = 1:length(D)
@@ -93,15 +160,42 @@ clear res;
 for modelIdx = 1:numModels
     xDim_across = xDims_all(modelIdx,1); % Across-group dimensionality of current model
     xDim_within = xDims_all(modelIdx,2:end); % Within-group dimensionalities
+    xDim_all = xDim_across + xDim_within;
+    numGroups = length(xDim_within);
+    
     % Initialize output structure
     res(modelIdx).xDim_across = xDim_across;
     res(modelIdx).xDim_within = xDim_within;
+    
     % We'll collect performance metrics in the following arrays
-    cvLL = nan(numFolds,1);
-    cvR2 = nan(numFolds,2);
-    cvR2orth = nan(numFolds,xDim_across,2);
-    cvMSE = nan(numFolds,2);
-    cvMSEorth = nan(numFolds,xDim_across,2);
+    % Log-likelihood, joint and individual
+    cvLL.joint = nan(numFolds,1);
+    cvLL.indiv = nan(numFolds,numGroups);
+    
+    % R^2 and MSE for pairwise regression, joint and individual
+    cvR2_reg.joint = nan(numFolds,1);
+    cvR2_reg.indiv = nan(numFolds,2);
+    cvR2orth_reg.indiv = nan(numFolds,xDim_across,2);
+    
+    cvMSE_reg.joint = nan(numFolds,1);
+    cvMSE_reg.indiv = nan(numFolds,2);
+    cvMSEorth_reg.indiv = nan(numFolds,xDim_across,2);
+    
+    % R^2 and MSE for denoised reconstruction, joint and individual
+    cvR2_denoise.joint = nan(numFolds,1);
+    cvMSE_denoise.joint = nan(numFolds,1);
+    
+    cvR2_denoise.indiv = nan(numFolds,numGroups);
+    cvMSE_denoise.indiv = nan(numFolds,numGroups);
+    
+    % Orthonormalized DLAG model performance
+    cvR2orth_denoise.indiv = cell(1,numGroups);
+    cvMSEorth_denoise.indiv = cell(1,numGroups);
+    for groupIdx = 1:numGroups
+        cvR2orth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx));
+        cvMSEorth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx));
+    end
+    
     % Find files with the appropriate models
     fIdxs = find(ismember(cell2mat([D.xDim_all])', xDims_all(modelIdx,:), 'rows'))'; 
     for i = fIdxs    
@@ -118,27 +212,85 @@ for modelIdx = 1:numModels
             res(modelIdx).rGroups = ws.rGroups;
         else
             % For models trained on CV folds, get performance metrics
-            cvLL(ws.cvf) = ws.LLtest;
-            cvR2(ws.cvf,:) = ws.R2;
-            cvR2orth(ws.cvf,:,:) = ws.R2orth;
-            cvMSE(ws.cvf,:) = ws.MSE;
-            cvMSEorth(ws.cvf,:,:) = ws.MSEorth;
+            
+            % Log-likelihood, joint and individual
+            cvLL.joint(ws.cvf) = ws.LLtest.joint;
+            cvLL.indiv(ws.cvf,:) = ws.LLtest.indiv;
+
+            % R^2 and MSE for pairwise regression, joint and individual
+            cvR2_reg.joint(ws.cvf) = ws.R2_reg.joint;
+            cvR2_reg.indiv(ws.cvf,:) = ws.R2_reg.indiv;
+            cvR2orth_reg.indiv(ws.cvf,:,:) = ws.R2orth_reg.indiv;
+
+            cvMSE_reg.joint(ws.cvf) = ws.MSE_reg.joint;
+            cvMSE_reg.indiv(ws.cvf,:) = ws.MSE_reg.indiv;
+            cvMSEorth_reg.indiv(ws.cvf,:,:) = ws.MSEorth_reg.indiv;
+
+            % R^2 and MSE for denoised reconstruction, joint and individual
+            cvR2_denoise.joint(ws.cvf) = ws.R2_denoise.joint;
+            cvMSE_denoise.joint(ws.cvf) = ws.MSE_denoise.joint;
+
+            cvR2_denoise.indiv(ws.cvf,:) = [ws.R2_denoise.indiv];
+            cvMSE_denoise.indiv(ws.cvf,:) = [ws.MSE_denoise.indiv];
+
+            % Orthonormalized DLAG model performance
+            for groupIdx = 1:numGroups
+                cvR2orth_denoise.indiv{groupIdx}(ws.cvf,:) = ws.R2orth_denoise.indiv{groupIdx};
+                cvMSEorth_denoise.indiv{groupIdx}(ws.cvf,:) = ws.MSEorth_denoise.indiv{groupIdx};
+            end
         end
     end 
     % Compute averages and SEMs
-    res(modelIdx).sumLL = sum(cvLL);
-    res(modelIdx).LL = mean(cvLL);
-    res(modelIdx).LL_sem = std(cvLL,0) / sqrt(numFolds);
-    res(modelIdx).R2 = mean(cvR2,1);
-    res(modelIdx).R2_sem = std(cvR2,0,1) ./ sqrt(numFolds);
-    res(modelIdx).R2orth = squeeze(mean(cvR2orth,1));
-    res(modelIdx).R2orth_sem = squeeze(std(cvR2orth,0,1) ./ sqrt(numFolds));
-    res(modelIdx).MSE = mean(cvMSE,1);
-    res(modelIdx).MSE_sem = std(cvMSE,0,1) ./ sqrt(numFolds);
-    res(modelIdx).MSEorth = squeeze(mean(cvMSEorth,1));
-    res(modelIdx).MSEorth_sem = squeeze(std(cvMSEorth,0,1) ./ sqrt(numFolds));
+
+    % Log-likelihood, joint and individual
+    res(modelIdx).sumLL.joint = sum(cvLL.joint);
+    res(modelIdx).LL.joint = mean(cvLL.joint);
+    res(modelIdx).LL_sem.joint = std(cvLL.joint,0) / sqrt(numFolds);
+    res(modelIdx).sumLL.indiv = sum(cvLL.indiv,1);
+    res(modelIdx).LL.indiv = mean(cvLL.indiv,1);
+    res(modelIdx).LL_sem.indiv = std(cvLL.indiv,0,1) /sqrt(numFolds);
+    
+    % R^2 and MSE for pairwise regression, joint and individual
+    res(modelIdx).R2_reg.joint = mean(cvR2_reg.joint);
+    res(modelIdx).R2_reg_sem.joint = std(cvR2_reg.joint,0) ./ sqrt(numFolds);
+    res(modelIdx).R2_reg.indiv = mean(cvR2_reg.indiv,1);
+    res(modelIdx).R2_reg_sem.indiv = std(cvR2_reg.indiv,0,1) ./ sqrt(numFolds);
+    res(modelIdx).R2orth_reg.indiv = squeeze(mean(cvR2orth_reg.indiv,1));
+    res(modelIdx).R2orth_reg_sem.indiv = squeeze(std(cvR2orth_reg.indiv,0,1) ./ sqrt(numFolds));
+
+    res(modelIdx).MSE_reg.joint = mean(cvMSE_reg.joint);
+    res(modelIdx).MSE_reg_sem.joint = std(cvMSE_reg.joint,0) ./ sqrt(numFolds);
+    res(modelIdx).MSE_reg.indiv = mean(cvMSE_reg.indiv,1);
+    res(modelIdx).MSE_reg_sem.indiv = std(cvMSE_reg.indiv,0,1) ./ sqrt(numFolds);
+    res(modelIdx).MSEorth_reg.indiv = squeeze(mean(cvMSEorth_reg.indiv,1));
+    res(modelIdx).MSEorth_reg_sem.indiv = squeeze(std(cvMSEorth_reg.indiv,0,1) ./ sqrt(numFolds));
+
+    % R^2 and MSE for denoised reconstruction, joint and individual
+    res(modelIdx).R2_denoise.joint = mean(cvR2_denoise.joint);
+    res(modelIdx).R2_denoise_sem.joint = std(cvR2_denoise.joint,0) ./ sqrt(numFolds);
+
+    res(modelIdx).MSE_denoise.joint = mean(cvMSE_denoise.joint);
+    res(modelIdx).MSE_denoise_sem.joint = std(cvMSE_denoise.joint,0) ./ sqrt(numFolds);
+
+    res(modelIdx).R2_denoise.indiv = mean(cvR2_denoise.indiv,1);
+    res(modelIdx).R2_denoise_sem.indiv = std(cvR2_denoise.indiv,0,1) ./ sqrt(numFolds);
+
+    res(modelIdx).MSE_denoise.indiv = mean(cvMSE_denoise.indiv,1);
+    res(modelIdx).MSE_denoise_sem.indiv = std(cvMSE_denoise.indiv,0,1) ./ sqrt(numFolds);
+    
+    % Orthonormalized DLAG model performance
+    for groupIdx = 1:numGroups
+        res(modelIdx).R2orth_denoise.indiv{groupIdx} = mean(cvR2orth_denoise.indiv{groupIdx},1);
+        res(modelIdx).R2orth_denoise_sem.indiv{groupIdx} = std(cvR2orth_denoise.indiv{groupIdx},0,1) ./ sqrt(numFolds);
+
+        res(modelIdx).MSEorth_denoise.indiv{groupIdx} = mean(cvMSEorth_denoise.indiv{groupIdx},1);
+        res(modelIdx).MSEorth_denoise_sem.indiv{groupIdx} = std(cvMSEorth_denoise.indiv{groupIdx},0,1) ./ sqrt(numFolds);
+    end
 end
 
-% Find the best model, based on sumLL
-sumLL = [res.sumLL];
+% Find the best model, based on sumLL.joint
+sumLL = nan(1,numModels);
+for modelIdx = 1:numModels
+    sumLL(modelIdx) = res(modelIdx).sumLL.joint;
+end
 [~, bestModel] = max(sumLL);

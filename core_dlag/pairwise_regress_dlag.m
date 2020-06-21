@@ -51,42 +51,65 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
 %     seq     -- test data structure with new fields yregOrthXX, where XX are
 %                elements of mList.  seq(n).yregOrthXX has the same dimensions
 %                as seq(n).y.
-%     MSE     -- (1 x 2) array; mean-squared error in each pairwise direction
-%     MSEorth -- (length(mList) x 2) array; mean-squared error in each 
-%                direction for reduced DLAG predictions
-%     R2      -- (1 x 2) array; R^2 in each pairwise direction
-%     R2orth  -- (length(mList) x 2) array; R^2 error in each 
-%                direction for reduced DLAG predictions
+%     MSE     -- structure with the following fields:
+%                indiv -- (1 x 2) array; mean-squared error in each 
+%                         pairwise direction
+%                joint -- float; mean-squared error across both groups
+%     MSEorth -- structure with the following fields:
+%                indiv -- (length(mList) x 2) array; mean-squared error in 
+%                         each direction for orthonoralized DLAG predictions
+%                joint -- (length(mList) x 1) array; mean-squared error 
+%                         across both groups for orthonormalized DLAG 
+%                         predictions
+%     R2      -- structure with the following fields:
+%                indiv -- (1 x 2) array; R^2 in each pairwise direction
+%                joint -- float; R^2 computed across both groups jointly
+%     R2orth  -- structure with the following fields:
+%                indiv -- (length(mList) x 2) array; R^2 error in each 
+%                         direction for orthonormalized DLAG predictions
+%                joint -- (length(mList) x 1) array; R^2 computed across 
+%                         both groups jointly for orthonormalized DLAG 
+%                         predictions.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.
+%     08 Jun 2020 -- Updated to include joint performance metrics.
 
 
-  yDims = params.yDims;
-  yDim = sum(yDims);
-  xDim_across = params.xDim_across;
-  xDim_within = params.xDim_within;
-  
-  obs_block_idxs = get_block_idxs(yDims); % Index rows of C
-  lat_block_idxs = get_block_idxs(xDim_across + xDim_within); % Index cols of C
-  
-  numRGroups = length(rGroups); % Really just 2, for pairwise regression
+yDims = params.yDims;
+yDim = sum(yDims);
+xDim_across = params.xDim_across;
+xDim_within = params.xDim_within;
 
-  for n = 1:length(seq)
+obs_block_idxs = get_block_idxs(yDims); % Index rows of C
+lat_block_idxs = get_block_idxs(xDim_across + xDim_within); % Index cols of C
+
+numRGroups = length(rGroups); % Really just 2, for pairwise regression
+
+% Initialize output structures
+% Predicted sequences
+for n = 1:length(seq)
     for m = mList
-      fn          = sprintf('yregOrth%02d', m);
-      seq(n).(fn) = nan(yDim, seq(n).T);
+        fn = sprintf('yregOrth%02d', m);
+        seq(n).(fn) = nan(yDim, seq(n).T);
     end
-  end
+end
 
-  MSE = nan(1,numRGroups);
-  MSEorth = nan(length(mList),numRGroups);
-  R2 = nan(1,numRGroups);
-  R2orth = nan(length(mList),numRGroups);
-  for i = 1:numRGroups  
+Ytrue_joint = [seq.y]; % Stack all sequences
+
+% Performance metrics
+MSE.indiv = nan(1,numRGroups);
+MSEorth.indiv = nan(length(mList),numRGroups);
+MSEorth.joint = nan(length(mList),1);
+R2.indiv = nan(1,numRGroups);
+R2orth.indiv = nan(length(mList),numRGroups);
+R2orth.joint = nan(length(mList),1);
+  
+% Compute predictions 
+for i = 1:numRGroups  
     
     % Indices of the current source group (predictors)
     currSourceGroup = rGroups(i);
@@ -108,8 +131,8 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
     targetLatIdxs = targetLatIdxs(1:xDim_across); % Keep only across-group latents
     
     for n = 1:length(seq)
-      seqReg(n).T = seq(n).T;
-      seqReg(n).y = seq(n).y(sourceIdxs,:);
+        seqReg(n).T = seq(n).T;
+        seqReg(n).y = seq(n).y(sourceIdxs,:);
     end
     paramsReg   = params;
     paramsReg.C = params.C(sourceIdxs,:);
@@ -122,39 +145,55 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
     % Orthonormalize with respect to the *target* group
     Ctarget = params.C(targetIdxs,targetLatIdxs);
     Xtemp = [seqReg.xsm];
-    [Xorth, Corth]    = orthogonalize(Xtemp(targetLatIdxs,:), Ctarget);
-    seqReg            = segmentByTrial(seqReg, Xorth, 'xorth');
+    [Xorth, Corth] = orthogonalize(Xtemp(targetLatIdxs,:), Ctarget);
+    seqReg = segmentByTrial(seqReg, Xorth, 'xorth');
     
     for n = 1:length(seq)
-      for m = mList
-        if m > size(Corth,2)
-          break;
+        for m = mList
+            if m > size(Corth,2)
+                break;
+            end
+            fn = sprintf('yregOrth%02d', m);
+            seq(n).(fn)(targetIdxs,:) = Corth(:,1:m) * seqReg(n).xorth(1:m,:) + params.d(targetIdxs);
         end
-        fn               = sprintf('yregOrth%02d', m);
-        seq(n).(fn)(targetIdxs,:) = Corth(:,1:m) * seqReg(n).xorth(1:m,:) + params.d(targetIdxs);
-      end
     end
     
-    % Now compute MSE
-    Ytrue = [seq.y];
-    Ytrue = Ytrue(targetIdxs,:);
-    % Reduced DLAG performance
+    % Compute individual performance metrics
+    Ytrue_indiv = Ytrue_joint(targetIdxs,:);
+    % Orthonormalized DLAG performance
     for m = mList
         fn = sprintf('yregOrth%02d', m);
         Ypred = [seq.(fn)];
         Ypred = Ypred(targetIdxs,:);
         % MSE
-        MSEorth(m,i) = immse(Ypred, Ytrue);
+        MSEorth.indiv(m,i) = immse(Ypred, Ytrue_indiv);
         % R2
-        RSS = sum( sum( ( Ytrue - Ypred ).^2, 1 ) );
-        TSS = sum( sum( ( Ytrue - repmat( mean(Ytrue,2), [1 size(Ytrue,2)] ) ).^2, 1 ) );
-        R2orth(m,i) = 1 - RSS / TSS;
+        RSS = sum( sum( ( Ytrue_indiv - Ypred ).^2, 1 ) );
+        TSS = sum( sum( ( Ytrue_indiv - repmat( mean(Ytrue_indiv,2), [1 size(Ytrue_indiv,2)] ) ).^2, 1 ) );
+        R2orth.indiv(m,i) = 1 - RSS / TSS;
     end
     % Full model performance
-    MSEvalid = MSEorth(~isnan(MSEorth(:,i)),i);
-    MSE(i) = MSEvalid(end);
-    R2valid = R2orth(~isnan(R2orth(:,i)),i);
-    R2(i) = R2valid(end);
+    MSEvalid = MSEorth.indiv(~isnan(MSEorth.indiv(:,i)),i);
+    MSE.indiv(i) = MSEvalid(end);
+    R2valid = R2orth.indiv(~isnan(R2orth.indiv(:,i)),i);
+    R2.indiv(i) = R2valid(end);
   
-  end
-  fprintf('\n');
+end
+
+% Compute joint performance metrics
+% Orthonormalized model performance
+for m = mList
+    fn = sprintf('yregOrth%02d', m);
+    Ypred = [seq.(fn)];
+    % MSE
+    MSEorth.joint(m,1) = immse(Ypred, Ytrue_joint);
+    % R2
+    RSS = sum( sum( ( Ytrue_joint - Ypred ).^2, 1 ) );
+    TSS = sum( sum( ( Ytrue_joint - repmat( mean(Ytrue_joint,2), [1 size(Ytrue_joint,2)] ) ).^2, 1 ) );
+    R2orth.joint(m,1) = 1 - RSS / TSS;
+end
+% Full model performance
+MSEvalid = MSEorth.joint(~isnan(MSEorth.joint(:,1)),1);
+MSE.joint = MSEvalid(end);
+R2valid = R2orth.joint(~isnan(R2orth.joint(:,1)),1);
+R2.joint = R2valid(end);

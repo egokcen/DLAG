@@ -68,6 +68,19 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                     xDims_across), then all groups will be assigned the
 %                     same within-group dimensionalities specified in that
 %                     vector. (default: {[1]})
+%     xDims_grid  -- (numModels x numGroups+1) array; xDims_grid(i,:) gives
+%                    the desired number of across- and within-group
+%                    dimensions for model i. The first column of
+%                    xDims_grid(i,:) specifies the number of across-group
+%                    dimensions. The remaining columns specify the number
+%                    of within-group dimensions for each group. For
+%                    example,
+%                        xDims_grid = [1 2 3; 4 5 6]
+%                    specifies model 1 with xDim_across = 1,
+%                    xDim_within = [2 3]; model 2 has xDim_across = 4, 
+%                    xDim_within = [5 6]. If xDims_grid is specified, then 
+%                    it overrides xDims_across and xDims_within. 
+%                    (default: [])
 %     parallelize -- logical; Set to true to use Matlab's parfor construct
 %                    to parallelize each fold and latent dimensionality 
 %                    using multiple cores. (default: false)
@@ -171,19 +184,30 @@ function result = fit_dlag(runIdx, dat, varargin)
 %     cross-validation folds (these variables will NOT appear in result
 %     above):
 %     
-%     LLtest  -- float; final data log likelihood evaluated 
-%                on test data
-%     MSE     -- (1 x 2) array; mean-squared error in each pairwise 
-%                direction, for pairwise regression performed on test data
-%     MSEorth -- (length(mList) x 2) array; mean-squared error in each 
-%                direction for reduced DLAG predictions, for pairwise
-%                regression performed on test data
-%     R2      -- (1 x 2) array; R^2 in each pairwise direction, for
-%                pairwise regression performed on test data
-%     R2orth  -- (length(mList) x 2) array; R^2 error in each 
-%                direction for reduced DLAG predictions, for pairwise
-%                regression  performed on test data
-%     seqTrainCut -- test data structure of the same format as seqTrain.
+%     LLtest      -- float; final data log likelihood evaluated 
+%                    on test data
+%     MSE_reg     -- structure containing mean-squared error in each 
+%                    pairwise direction, for pairwise regression performed 
+%                    on test data
+%     MSEorth_reg -- structure containing mean-squared error in each 
+%                    direction for orthonormalized DLAG predictions, for 
+%                    pairwise regression performed on test data
+%     R2_reg      -- structure containing R^2 in each pairwise direction, 
+%                    for pairwise regression performed on test data
+%     R2orth_reg  -- structure containing R^2 error in each direction for
+%                    orthonormalized DLAG predictions, for pairwise
+%                    regression performed on test data
+%     MSE_denoise -- structure containing mean-squared error from denoised
+%                    reconstruction of observations, performed on test data              
+%     MSEorth_denoise -- structure containing mean-squared from denoised 
+%                    reconstruction of observations, for orthonormalized 
+%                    DLAG predictions, performed on test data
+%     R2_denoise  -- structure containing R^2 error from denoised
+%                    reconstruction of observations, performed on test data
+%     R2orth_denoise  -- structure containing R^2 error from denoised
+%                    reconstruction of observations, for orthonormalized 
+%                    DLAG predictions, performed on test data
+%     seqTest     -- test data structure of the same format as seqTrain.
 %                    NOTE: Only included if saveData is true.
 %
 % Authors:
@@ -200,6 +224,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %     24 May 2020 -- Moved printed info about fitted models from
 %                    call_dlag_engine.m to here. That move cleans up prints 
 %                    during parallelization.
+%     17 Jun 2020 -- Updated documentation to reflect expanded
+%                    cross-validation metrics.
+%     20 Jun 2020 -- Added xDims_grid option.
 
 % Specify defaults for optional arguments
 baseDir              = '.';
@@ -209,6 +236,7 @@ numFolds             = 0;
 yDims                = [];
 xDims_across         = [3];
 xDims_within         = {[1]};
+xDims_grid           = [];
 parallelize          = false;
 numWorkers           = 4;
 randomSeed           = 0;
@@ -254,21 +282,23 @@ if numFolds > 0
     val_indices = crossvalind('Kfold', N, numFolds);
 end
 
-% Construct hyperparameter grid. Note that models will not be allowed for
-% which latent dimensions outnumber observations. (These models will have 
-% issues with numerical conditioning.)
-% Dimensions len(xDims_across) x len(xDims_within{1}) x len(xDims_within{2}) ...
-xDims_within_grid = cell(1,length(xDims_within));
-[xDims_across_grid, xDims_within_grid{:}] = ndgrid(xDims_across,xDims_within{:});
-xDims_grid = [xDims_across_grid(:)];
-for groupIdx = 1:numGroups
-    if length(xDims_within) == 1
-        % If user input only one set of private dimensions, then we'll fix
-        % the private dimensionalities of all groups to be the same.
-        xDims_grid = [xDims_grid xDims_within_grid{1}(:)];
-    else
-        % Otherwise, do a full grid search
-        xDims_grid = [xDims_grid xDims_within_grid{groupIdx}(:)];
+if isempty(xDims_grid)
+    % Construct hyperparameter grid. Note that models will not be allowed for
+    % which latent dimensions outnumber observations. (These models will have 
+    % issues with numerical conditioning.)
+    % Dimensions len(xDims_across) x len(xDims_within{1}) x len(xDims_within{2}) ...
+    xDims_within_grid = cell(1,length(xDims_within));
+    [xDims_across_grid, xDims_within_grid{:}] = ndgrid(xDims_across,xDims_within{:});
+    xDims_grid = [xDims_across_grid(:)];
+    for groupIdx = 1:numGroups
+        if length(xDims_within) == 1
+            % If user input only one set of within-group dimensions, then we'll fix
+            % the within-group dimensionalities of all groups to be the same.
+            xDims_grid = [xDims_grid xDims_within_grid{1}(:)];
+        else
+            % Otherwise, do a full grid search
+            xDims_grid = [xDims_grid xDims_within_grid{groupIdx}(:)];
+        end
     end
 end
 for paramIdx = 1:size(xDims_grid,1)
