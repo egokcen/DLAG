@@ -49,6 +49,7 @@ function d_shared = findSharedDimCutoff(params, cutoffPC, varargin)
 %                    Within- and across-group only cutoffs are poorly
 %                    defined, since within- and across-group dimensions
 %                    are, in general, correlated.
+%     28 Jun 2020 -- Fixed issue with reporting cutoff dimensionality.
 
 plotSpec = false;
 extraOpts     = assignopts(who, varargin);
@@ -94,7 +95,7 @@ for groupIdx = 1:numGroups
     % shared variance within a certain cutoff
     shared_var.indiv{groupIdx} = spectrum ./ sum(spectrum);
     cumulative_var.indiv{groupIdx} = cumsum(spectrum) ./ sum(spectrum);
-    d_shared.indiv(groupIdx) = sum(cumulative_var.indiv{groupIdx} <= cutoffPC);
+    [~, d_shared.indiv(groupIdx)] = max(cumulative_var.indiv{groupIdx} >= cutoffPC);
 
 end
 
@@ -121,7 +122,7 @@ end
 % shared variance within a certain cutoff
 shared_var.joint = spectrum ./ sum(spectrum);
 cumulative_var.joint = cumsum(spectrum) ./ sum(spectrum);
-d_shared.joint = sum(cumulative_var.joint <= cutoffPC);
+[~, d_shared.joint] = max(cumulative_var.joint >= cutoffPC);
 
 if plotSpec
     colors = generateColors(); % Generate custom plotting colors

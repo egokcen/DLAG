@@ -14,17 +14,17 @@ function dim = getNumDim_dlag(res,varargin)
 %              xDim_across -- int; across-group latent dimensionality
 %              xDim_within -- (1 x numGroups) array; within-group latent
 %                             dimensionalities for each group
-%              R2orth_reg.indiv -- (xDim_across x 2) array; average 
+%              R2orth_reg.indiv -- (xDim_across+1 x 2) array; average 
 %                                  cross-validated R^2 error in each 
 %                                  direction for orthonormalized DLAG 
 %                                  predictions, for the pair in rGroups.
-%              R2orth_reg_sem.indiv -- (xDim_across x 2) array; standard error 
+%              R2orth_reg_sem.indiv -- (xDim_across+1 x 2) array; standard error 
 %                                      of R2orth_reg.indiv across CV folds
-%              MSEorth_reg.indiv -- (xDim_across x 2) array; average 
+%              MSEorth_reg.indiv -- (xDim_across+1 x 2) array; average 
 %                                   cross-validated mean-squared error in 
 %                                   each direction for orthonormalized DLAG 
 %                                   predictions, for the pair in rGroups.
-%              MSEorth_reg_sem.indiv -- (xDim_across x 2) array; standard 
+%              MSEorth_reg_sem.indiv -- (xDim_across+1 x 2) array; standard 
 %                                       error of MSEorth_reg.indiv across
 %                                       CV folds
 %              R2orth_denoise.indiv -- (1 x numGroups) cell array;
@@ -64,6 +64,7 @@ function dim = getNumDim_dlag(res,varargin)
 %
 % Revision history:
 %     16 Jun 2020 -- Initial full revision.
+%     28 Jun 2020 -- Updated for 0-dimension compatibility.
 
 metric = 'R2';
 assignopts(who, varargin);
@@ -86,6 +87,8 @@ if isequal(metric,'MSE')
         % NOTE: max used in this manner selects the first instance that
         %       satisfies the input condition.
         [~, dim.all(groupIdx)] = max(MSE_denoise <= bestMSE + best_sem);
+        % Adjust for indexing shift due to 0-dim model.
+        dim.all(groupIdx) = dim.all(groupIdx) - 1; 
         
         % Determine the number of across-group dimensions required to 
         % predict the other group.
@@ -98,6 +101,8 @@ if isequal(metric,'MSE')
             % NOTE: max used in this manner selects the first instance that
             %       satisfies the input condition.
             [~, dim.across(groupIdx)] = max(MSE_reg <= bestMSE + best_sem);
+            % Adjust for indexing shift due to 0-dim model.
+            dim.across(groupIdx) = dim.across(groupIdx) - 1; 
         end
     end
     
@@ -115,6 +120,8 @@ elseif isequal(metric,'R2')
         % NOTE: max used in this manner selects the first instance that
         %       satisfies the input condition.
         [~, dim.all(groupIdx)] = max(R2_denoise >= bestR2 - best_sem);
+        % Adjust for indexing shift due to 0-dim model.
+        dim.all(groupIdx) = dim.all(groupIdx) - 1; 
         
         % Determine the number of across-group dimensions required to 
         % predict the other group.
@@ -127,6 +134,8 @@ elseif isequal(metric,'R2')
             % NOTE: max used in this manner selects the first instance that
             %       satisfies the input condition.
             [~, dim.across(groupIdx)] = max(R2_reg >= bestR2 - best_sem);
+            % Adjust for indexing shift due to 0-dim model.
+            dim.across(groupIdx) = dim.across(groupIdx) - 1; 
         end
     end
     

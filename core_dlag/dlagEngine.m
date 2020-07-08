@@ -82,6 +82,8 @@ function dlagEngine(seqTrain,seqTest,fname,varargin)
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.
 %     09 Jun 2020 -- Expanded metrics of generalization performance.
+%     27 Jun 2020 -- Included 0-dimensional models in performance
+%                    assessment. 'init_method' default changed to 'static'.
 
 xDim_across   = 3;
 xDim_within   = [];
@@ -91,7 +93,7 @@ binWidth      = 20;
 startTau      = 2*binWidth; 
 startEps      = 1e-3;
 startDelay    = [];  
-init_method   = 'pCCA';
+init_method   = 'static';
 covType       = 'rbf';
 parallelize   = false;
 saveData      = false;
@@ -137,7 +139,7 @@ if ~isempty(seqTest)
   %%% Conditional statistics (leave out select populations)
     % Pairwise regression on test data
     [~, MSE_reg, MSEorth_reg, R2_reg, R2orth_reg] ...
-        = pairwise_regress_dlag(seqTest, estParams, 1:xDim_across, rGroups);
+        = pairwise_regress_dlag(seqTest, estParams, 0:xDim_across, rGroups);
     
   %%% Joint statistics (evaluated on all populations jointly)
     % Log-likelihood and reconstruction error on test data

@@ -92,6 +92,7 @@ function startParams = initialize_dlag(seqTrain,init_method,varargin)
 %
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.   
+%     27 Jun 2020 -- Updated to handle 0-across-group latent case.
 
 xDim_across   = 3;
 xDim_within   = [];
@@ -101,20 +102,36 @@ initParams    = {};
 parallelize   = false;
 extraOpts     = assignopts(who, varargin);
 
-if ~parallelize
-    fprintf('Initializing DLAG using %s...\n',init_method);
-end
-
 switch(init_method)
-    case 'pCCA'
-        startParams = init_pCCA_dlag(seqTrain, ...
-                                     'xDim_across', xDim_across, ...
-                                     'xDim_within', xDim_within, ...
-                                     'yDims', yDims, ...
-                                     'parallelize', parallelize, ...
-                                      extraOpts{:}); 
+    case 'static'
+        if xDim_across > 0
+            % For a standard DLAG model, initialize with pCCA.
+            if ~parallelize
+                fprintf('\nInitializing DLAG using pCCA...\n');
+            end
+            startParams = init_pCCA_dlag(seqTrain, ...
+                                         'xDim_across', xDim_across, ...
+                                         'xDim_within', xDim_within, ...
+                                         'yDims', yDims, ...
+                                         'parallelize', parallelize, ...
+                                          extraOpts{:}); 
+        else
+            % For models with independent groups, initialize with FA.
+            if ~parallelize
+                fprintf('\nInitializing DLAG using FA...\n');
+            end
+            startParams = init_FA_dlag(seqTrain, ...
+                                       'xDim_across', xDim_across, ...
+                                       'xDim_within', xDim_within, ...
+                                       'yDims', yDims, ...
+                                       'parallelize', parallelize, ...
+                                        extraOpts{:}); 
+        end
     case 'params'
+        if ~parallelize
+                fprintf('\nInitializing DLAG using params...\n');
+        end
         startParams = initParams;
     otherwise
-        fprintf('\nError: Invalid Option\n');
+        fprintf('\nError: Invalid initialization option.\n');
 end

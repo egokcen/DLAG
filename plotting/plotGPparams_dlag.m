@@ -71,6 +71,7 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 % Revision history:
 %     10 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     28 Jun 2020 -- Added 0-across-group dimension functionality
 
 % Set optional arguments
 plotAcross = true;
@@ -87,19 +88,21 @@ colors = generateColors(); % Generate custom plotting colors
 % Convert GP params into units of time
 gp_params = getGPparams_dlag(params, binWidth);
 
-% Take only the delays associated with the groups in rGroups
-delays = gp_params.DelayMatrix(rGroups(2),:) ...
-       - gp_params.DelayMatrix(rGroups(1),:);
+if xDim_across > 0
+    % Take only the delays associated with the groups in rGroups
+    delays = gp_params.DelayMatrix(rGroups(2),:) ...
+           - gp_params.DelayMatrix(rGroups(1),:);
 
-% Figure out plot limits
-maxDelay = max(delays);
-minDelay = min(delays);
+    % Figure out plot limits
+    maxDelay = max(delays);
+    minDelay = min(delays);
+end
 
 all_tau = [gp_params.tau_across gp_params.tau_within{:}];
 maxTau = max(all_tau);
 
 % Determine number of subplots, based on optional arguments
-numPlot = sum([plotAcross plotWithin.*(sum(xDim_within > 0))]);
+numPlot = sum([plotAcross*(xDim_across > 0) plotWithin.*(sum(xDim_within > 0))]);
 
 if numPlot <= 0
     % Reach here if plotAcross is false and all xDim_within are 0
@@ -115,7 +118,7 @@ if ~isempty(units)
 end
 
 % Across-group GP params
-if plotAcross
+if plotAcross && (xDim_across > 0)
     plotIdx = plotIdx + 1;
     subplot(1,numPlot,plotIdx);
     hold on;

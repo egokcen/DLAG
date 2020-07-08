@@ -64,6 +64,7 @@ function [Ys, Xs, params] = simdata_dlag(N, T, samplePeriod, yDims, ...
 % Revision history:
 %     07 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     28 Jun 2020 -- Added 0-across-group dimension functionality
 
     numGroups = length(yDims);
     TIME_STEP = 1; % Full temporal resolution when generating GPs
@@ -71,9 +72,14 @@ function [Ys, Xs, params] = simdata_dlag(N, T, samplePeriod, yDims, ...
     % Generate GP parameters
     
     % Across-group timescales and noise variances
-    taus_across = min_tau + (max_tau-min_tau).*rand(1,xDim_across); 
-    % Deal with noise variances on a log scale
-    eps_across = exp(log(min_eps) + (log(max_eps)- log(min_eps)).*(rand(1,xDim_across)));
+    taus_across = [];
+    eps_across = [];
+    if xDim_across > 0
+        % If xDim_across is 0, keep taus and eps empty
+        taus_across = min_tau + (max_tau-min_tau).*rand(1,xDim_across); 
+        % Deal with noise variances on a log scale
+        eps_across = exp(log(min_eps) + (log(max_eps)- log(min_eps)).*(rand(1,xDim_across)));
+    end
     
     % Within-group timescales and noise variances
     taus_within = cell(1,numGroups);
@@ -88,17 +94,21 @@ function [Ys, Xs, params] = simdata_dlag(N, T, samplePeriod, yDims, ...
     
     % Delays
     delays = cell(1,numGroups);
-    for groupIdx = 1:numGroups
-        if groupIdx <= 1
-            % Set delays to first group to 0 time steps
-            delays{groupIdx} = zeros(1,xDim_across); 
-        else
-            % All other groups have non-zero delays
-            delays{groupIdx} = randi([min_delay, max_delay], 1, xDim_across);
+    if xDim_across > 0
+        for groupIdx = 1:numGroups
+            if groupIdx <= 1
+                % Set delays to first group to 0 time steps
+                delays{groupIdx} = zeros(1,xDim_across); 
+            else
+                % All other groups have non-zero delays
+                delays{groupIdx} = randi([min_delay, max_delay], 1, xDim_across);
+            end
         end
+        all_delays = cat(2,delays{:});
+        largest_delay = max(abs(all_delays)); % Take the largest empirical delay
+    else
+        largest_delay = 0;
     end
-    all_delays = cat(2,delays{:});
-    largest_delay = max(abs(all_delays)); % Take the largest empirical delay
     
     % Define the sequence length of generated data *before* downsampling
     T_fullres = T * samplePeriod + 2*largest_delay;
@@ -126,7 +136,11 @@ function [Ys, Xs, params] = simdata_dlag(N, T, samplePeriod, yDims, ...
     for n = 1:N
         % Generate a set of latent sequences for this trial
         % Across
-        Xn_across = sim_gp_latents(xDim_across, T_fullres, TIME_STEP, taus_across, eps_across);
+        if xDim_across > 0
+            Xn_across = sim_gp_latents(xDim_across, T_fullres, TIME_STEP, taus_across, eps_across);
+        else
+            Xn_across = []; 
+        end
         for groupIdx = 1:numGroups
             % If xDim_within(groupIdx) is 0, don't create within-group
             % latents

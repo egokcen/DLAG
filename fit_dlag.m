@@ -227,6 +227,7 @@ function result = fit_dlag(runIdx, dat, varargin)
 %     17 Jun 2020 -- Updated documentation to reflect expanded
 %                    cross-validation metrics.
 %     20 Jun 2020 -- Added xDims_grid option.
+%     28 Jun 2020 -- Updated to handle the all-zero-dimension case.
 
 % Specify defaults for optional arguments
 baseDir              = '.';
@@ -334,7 +335,9 @@ end
 % We assume within- and across-group dimensions are linearly 
 % independent, so don't train models where a group has an 
 % overcomplete basis (i.e., more latents than observations).
+% Also skip models where all dimensionalities are 0.
 i = 1;    
+cvf_params = [];
 for paramIdx = 1:length(xDims)
     % Flag whether or not we should skip this set of hyperparameters
     overcomplete = false; 
@@ -344,8 +347,9 @@ for paramIdx = 1:length(xDims)
         end
     end
     
-    % If overcomplete, then we skip this set of hyperparameters
-    if ~overcomplete
+    % If overcomplete, then we skip this set of hyperparameters.
+    % Also skip models with all dimensionalities 0.    
+    if ~overcomplete && any([xDims(paramIdx).xDim_across xDims(paramIdx).xDim_within])
     
         for cvf = cvf_list
             % Specify filename where results will be saved
@@ -364,6 +368,10 @@ for paramIdx = 1:length(xDims)
         end
     
     end
+end
+if isempty(cvf_params)
+    fprintf('ERROR: No valid models specified.\n');
+    return;
 end
 
 % Set up parallelization, if desired

@@ -20,7 +20,7 @@ rng('shuffle');
 N = 200;                            % Total number of sequences (trials)
 numTrain = 100;                     % Define train and test splits
 numTest = N - numTrain;
-T = 50;                             % Number of samples per sequence
+T = 25;                             % Number of samples per sequence
 binWidth = 20;                      % Sample period of ground truth data (take only one sample every binWidth samples)
 yDims = [10 10];                    % Dimensionalities of each observed group
 numGroups = length(yDims);          % Total number of groups
@@ -28,20 +28,20 @@ numGroups = length(yDims);          % Total number of groups
 block_idxs = get_block_idxs(yDims);
 xDim_across = 4;                    % Across-group latent dimensionality
 xDim_within = [2 2];                % Within-group latent dimensionalities
-snr = [1.0 1.0];                    % Signal-to-noise ratios of each group
+snr = [0.5 0.5];                    % Signal-to-noise ratios of each group
 centered = false;                   % Let d be non-zero
 
 % GP Timescales
 min_tau = 30;                       % Lower-bound of GP timescale range
-max_tau = 250;                      % Upper-bound of GP timescale range
+max_tau = 130;                      % Upper-bound of GP timescale range
 
 % GP noise variances                
 min_eps = 1e-5;                     % Lower-bound of GP noise range
 max_eps = 1e-5;                     % Upper-bound of GP noise range
 
 % Delays
-min_delay = -50;                 % Lower-bound of delay range, in samples (time steps)
-max_delay = 50;                  % Uppder-bound of delay range, in samples (time steps)
+min_delay = -25;                 % Lower-bound of delay range, in samples (time steps)
+max_delay = 25;                  % Uppder-bound of delay range, in samples (time steps)
 
 %% Randomly generate data from a DLAG model
 [Ys, Xs, params] = simdata_dlag(N, T, binWidth, yDims, ...

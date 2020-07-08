@@ -77,7 +77,7 @@
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Last Revised: 
-%     20 Jun 2020
+%     28 Jun 2020
 
 %% ================
 % 0a) Load demo data 
@@ -113,12 +113,12 @@ method = 'dlag';      % For now this is the only option, but that may change in 
 binWidth = 20;        % Sample period / spike count bin width, in units of time (e.g., ms)
 numFolds = 0;         % Number of cross-validation folds (0 means no cross-validation)
 xDims_across = 4;     % This number of across-group latents matches the synthetic ground truth
-xDims_within = {2,2}; % These numbers match the within-group latents in the synthetic ground truth
+xDims_within = {2, 2}; % These numbers match the within-group latents in the synthetic ground truth
 yDims = [10 10];      % Number of observed features (neurons) in each group (area)
 rGroups = [1 2];      % For performance evaluation, we can regress group 2's activity with group 1
 startTau = 2*binWidth;% Initial timescale, in the same units of time as binWidth
 segLength = 25;       % Largest trial segment length, in no. of time points
-init_method = 'pCCA'; % Initialize DLAG with fitted pCCA parameters
+init_method = 'static'; % Initialize DLAG with fitted pCCA parameters
 learnDelays = true;   % Set to false if you want to fix delays at their initial value
 maxIters = 3e4;       % Limit the number of EM iterations (not recommended, in general)
 freqLL = 10;          % Check for data log-likelihood convergence every freqLL EM iterations
@@ -216,9 +216,9 @@ plotEachDimVsTime(Xtrain, 'xgt', res.binWidth, ...
 % Orthonormalize and order across-group latents according to predictive
 % power. This loses information about individual delay/timescale labels.
 [seqTrain, Cpred] = predictiveProjection_dlag(seqTrain, ...
-                                             res.estParams, ...
-                                             res.xDim_across, ...
-                                             res.rGroups);
+                                              res.estParams, ...
+                                              res.xDim_across, ...
+                                              res.rGroups);
 
 % Name of orthonormalized latents in seqTest  
 xspec = sprintf('xorth_pred%02d', res.xDim_across);                                      
@@ -305,8 +305,8 @@ fit_pcca(runIdx, Ytrain, ...
 plotPerfvsDim_pcca(cvResults, ...
                    'bestModel', bestModel, ...
                    'plotLL', true, ...
-                   'plotR2', false, ...
-                   'plotMSE', false);
+                   'plotR2', true, ...
+                   'plotMSE', true);
 
 %% ================================================================
 % 2b) Determine the number of within- and across-group dimensions using a
@@ -317,7 +317,7 @@ plotPerfvsDim_pcca(cvResults, ...
 runIdx = 2;
 numFolds = 4;
 xDims_across = 6;         
-xDims_within = {3,3};
+xDims_within = {4,4};
 
 fit_dlag(runIdx, Ytrain, ...
          'baseDir', baseDir, ...
@@ -348,7 +348,7 @@ fit_dlag(runIdx, Ytrain, ...
 
 % Get the cross-validated results of the one model we want to inspect.
 xDim_across = 6;
-xDim_within = [3 3];
+xDim_within = [4 4];
 res = getSingleCrossValResult_dlag(cvResults, xDim_across, xDim_within);
 
 % Determine the smallest number of dimensions required to explain observed
@@ -371,7 +371,7 @@ numFolds = 4; % We'll still assess cross-validated performance
 % dimensions. Also train a model with the minimum number of across-group
 % dimensions, but more within-group dimensions than needed.
 xDims_grid = [dim.across, dim.all - dim.across; ... 
-              dim.across, yDims - dim.across - 1]; 
+              dim.across, yDims - dim.across]; 
 
 fit_dlag(runIdx, Ytrain, ...
          'baseDir', baseDir, ...

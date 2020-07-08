@@ -88,6 +88,7 @@ function plotBootstrapGPparams_dlag(params,bootParams,binWidth,rGroups,varargin)
 % Revision history:
 %     17 May 2020 -- Initial full revision.
 %     20 Jun 2020 -- Plotting of point estimates is now optional.
+%     28 Jun 2020 -- Updated for compatibility with 0-dimension models.
 
 % Set optional arguments
 plotAcross = true;
@@ -106,16 +107,18 @@ colors = generateColors(); % Generate custom plotting colors
 gp_params = getGPparams_dlag(params, binWidth);
 
 % Take only the delays associated with the groups in rGroups
-delays = gp_params.DelayMatrix(rGroups(2),:) ...
-       - gp_params.DelayMatrix(rGroups(1),:);
-bootDelays.upper = bootParams.DelayMatrix.upper(rGroups(2),:) ...
-                 - bootParams.DelayMatrix.upper(rGroups(1),:);
-bootDelays.lower = bootParams.DelayMatrix.lower(rGroups(2),:) ...
-                 - bootParams.DelayMatrix.lower(rGroups(1),:);
+if xDim_across > 0
+    delays = gp_params.DelayMatrix(rGroups(2),:) ...
+           - gp_params.DelayMatrix(rGroups(1),:);
+    bootDelays.upper = bootParams.DelayMatrix.upper(rGroups(2),:) ...
+                     - bootParams.DelayMatrix.upper(rGroups(1),:);
+    bootDelays.lower = bootParams.DelayMatrix.lower(rGroups(2),:) ...
+                     - bootParams.DelayMatrix.lower(rGroups(1),:);
 
-% Figure out plot limits
-maxDelay = max([delays bootDelays.upper bootDelays.lower]);
-minDelay = min([delays bootDelays.upper bootDelays.lower]);
+    % Figure out plot limits
+    maxDelay = max([delays bootDelays.upper bootDelays.lower]);
+    minDelay = min([delays bootDelays.upper bootDelays.lower]);
+end
 
 all_tau = [gp_params.tau_across ...
            bootParams.tau_across.upper ...
@@ -127,7 +130,7 @@ all_tau = [gp_params.tau_across ...
 maxTau = max(all_tau);
 
 % Determine number of subplots, based on optional arguments
-numPlot = sum([plotAcross plotWithin.*(sum(xDim_within > 0))]);
+numPlot = sum([plotAcross*(xDim_across > 0) plotWithin.*(sum(xDim_within > 0))]);
 
 if numPlot <= 0
     % Reach here if plotAcross is false and all xDim_within are 0
@@ -143,7 +146,7 @@ if ~isempty(units)
 end
 
 % Across-group GP params
-if plotAcross
+if plotAcross && xDim_across > 0
     plotIdx = plotIdx + 1;
     subplot(1,numPlot,plotIdx);
     hold on;
@@ -201,8 +204,7 @@ if plotWithin
                     'markerfacecolor', colors.reds{3}, ...
                     'markeredgecolor', colors.reds{3});
             end
-    end
             hold off;
-        end
+        end 
     end
 end
