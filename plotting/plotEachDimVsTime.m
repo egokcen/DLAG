@@ -65,6 +65,7 @@ function plotEachDimVsTime(seq, xspec, binWidth, varargin)
 % Revision history:
 %     26 Mar 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     28 Jun 2020 -- Added 0-across-group dimension functionality
 
 
 nPlotMax   = 20;
@@ -173,48 +174,51 @@ else % Format figure to more clearly distinguish across- and within-group latent
     nCols = max([xDim_across xDim_within]);
     
     for groupIdx = 1:numGroups
-        % Across-group latents
-        for k = 1:xDim_across
-            plotIdx = (groupIdx-1)*nCols + k;
-            h = subplot(nRows, nCols, plotIdx);
-            hold on;
-            if plotZero
-                % Plot the zero-firing rate point in latent space
-                plot([1 Tmin], [Zero(k) Zero(k)], ...
-                     'linestyle', '--', ...
-                     'color', colors.grays{1}, ...
-                     'linewidth', 1.5);
-            end
-            % Initialize the mean trajectory. Only average over time points up to
-            % Tmin, if trial lengths are different.
-            xmean = zeros(1,Tmin); 
-            for n = 1:N
-                dat = seqAcross(n).(xspec);
-                if plotSingle 
-                    % Plot single-trial trajectories
-                    T = seqAcross(n).T;
-                    plot(1:T, dat(k,:), ...
-                         'linewidth', 0.05, ...
-                         'color', colors.blues{7});
+        % If there are no across-group latents, then leave this row empty.
+        if xDim_across > 0
+            % Across-group latents
+            for k = 1:xDim_across
+                plotIdx = (groupIdx-1)*nCols + k;
+                h = subplot(nRows, nCols, plotIdx);
+                hold on;
+                if plotZero
+                    % Plot the zero-firing rate point in latent space
+                    plot([1 Tmin], [Zero(k) Zero(k)], ...
+                         'linestyle', '--', ...
+                         'color', colors.grays{1}, ...
+                         'linewidth', 1.5);
                 end
-                xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
+                % Initialize the mean trajectory. Only average over time points up to
+                % Tmin, if trial lengths are different.
+                xmean = zeros(1,Tmin); 
+                for n = 1:N
+                    dat = seqAcross(n).(xspec);
+                    if plotSingle 
+                        % Plot single-trial trajectories
+                        T = seqAcross(n).T;
+                        plot(1:T, dat(k,:), ...
+                             'linewidth', 0.05, ...
+                             'color', colors.blues{7});
+                    end
+                    xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
+                end
+                % Plot the mean trajectory
+                if plotMean
+                    plot(1:Tmin, xmean, ...
+                         'linewidth', 2.0, ... 
+                         'color', colors.blues{4});
+                end
+
+                % Additional formatting of titles and axis labels.
+                axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
+                set(h, 'xtick', xtk, 'xticklabel', xtkl);
+                set(h, 'ytick', ytk, 'yticklabel', ytk);
+                str = sprintf('$${\\mathbf x}^{(%d,%d)}_{a,:}$$',groupIdx,k);
+                str = sprintf('%s, $$D_{%d%d} = %3.1f$$', str, groupIdx, k, DelayMatrix(groupIdx,k));
+                str = sprintf('%s%s', str, units);
+                title(str, 'interpreter', 'latex', 'fontsize', 16);
+                xlabel(sprintf('Time%s', units));
             end
-            % Plot the mean trajectory
-            if plotMean
-                plot(1:Tmin, xmean, ...
-                     'linewidth', 2.0, ... 
-                     'color', colors.blues{4});
-            end
-            
-            % Additional formatting of titles and axis labels.
-            axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
-            set(h, 'xtick', xtk, 'xticklabel', xtkl);
-            set(h, 'ytick', ytk, 'yticklabel', ytk);
-            str = sprintf('$${\\mathbf x}^{(%d,%d)}_{a,:}$$',groupIdx,k);
-            str = sprintf('%s, $$D_{%d%d} = %3.1f$$', str, groupIdx, k, DelayMatrix(groupIdx,k));
-            str = sprintf('%s%s', str, units);
-            title(str, 'interpreter', 'latex', 'fontsize', 16);
-            xlabel(sprintf('Time%s', units));
         end
         
         % If this group has no within-group latents, then leave this row

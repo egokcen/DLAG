@@ -104,7 +104,7 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
         LLold = LLi;
         ldM = sum(log(diag(chol(MM)))); % (1/2) log-determinant of MM
         LLi = N*const + N*ldM - 0.5*N*sum(sum(MM .* cY));
-        if verbose && ~ parallelize
+        if verbose && ~parallelize
             fprintf('EM iteration %3d of %d        lik %f\r', i, maxIters, LLi);
         end
         LL = [LL LLi]; 
@@ -133,9 +133,9 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
   
     if verbose && ~parallelize
         if length(LL) < maxIters
-            fprintf('\nLL converged after %d EM iterations.\n', length(LL));
+            fprintf('LL converged after %d EM iterations.\n', length(LL));
         else
-            fprintf('\nFitting stopped after maxIters (%d) was reached.\n', maxIters);
+            fprintf('Fitting stopped after maxIters (%d) was reached.\n', maxIters);
         end 
     end
     

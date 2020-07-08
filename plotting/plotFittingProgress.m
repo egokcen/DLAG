@@ -54,6 +54,7 @@ function plotFittingProgress(res, varargin)
 % Revision history:
 %     12 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     28 Jun 2020 -- Added 0-across-group dimension functionality
 
 freqLL = 1;
 freqParam = 1;
@@ -69,14 +70,15 @@ xDim_across = res.xDim_across;
 xDim_within = res.xDim_within;
 binWidth = res.binWidth;
 numGroups = length(xDim_within);
-numPlot = 4 + sum(xDim_within > 0);
+numPlot = 2 + 2*(xDim_across > 0) + sum(xDim_within > 0);
 
 colors = generateColors(); % Get custom colors for plotting
 
 figure;
 
 % Log-likelihood curve
-subplot(1,numPlot,1);
+plotIdx = 1;
+subplot(1,numPlot,plotIdx);
 hold on;
 LLcut = res.LLcut(~isnan(res.LLcut));
 plot([1 2 freqLL.*(1:length(LLcut)-2)], LLcut, 'color', colors.grays{1}, 'linewidth', 1.5);
@@ -84,37 +86,41 @@ xlabel('# Iterations');
 ylabel('LL');
 
 % Cumulative fitting time
-subplot(1,numPlot,2);
+plotIdx = plotIdx + 1;
+subplot(1,numPlot,plotIdx);
 hold on;
 plot(cumsum(res.iterTime), 'color', colors.grays{1}, 'linewidth', 1.5);
 xlabel('# Iterations');
 ylabel('Cumulative time elapsed (sec)');
 
 % Delay progress
-subplot(1,numPlot,3);
-hold on;
-Delays = cat(3, res.D{:});
-for i = 1:xDim_across
-    plot(freqParam.*(0:length(res.D)-1), binWidth.*squeeze(Delays(2,i,:)),...
-         'linewidth', 1.5);
-end
-xlabel('# Iterations');
-ylabel(sprintf('Delay%s', units));
+if xDim_across > 0
+    plotIdx = plotIdx + 1;
+    subplot(1,numPlot,plotIdx);
+    hold on;
+    Delays = cat(3, res.D{:});
+    for i = 1:xDim_across
+        plot(freqParam.*(0:length(res.D)-1), binWidth.*squeeze(Delays(2,i,:)),...
+             'linewidth', 1.5);
+    end
+    xlabel('# Iterations');
+    ylabel(sprintf('Delay%s', units));
 
-% Across-group GP timescale progress
-Gams = cat(3, res.gams_across{:});
-subplot(1,numPlot,4);
-hold on;
-for i = 1:xDim_across
-    plot(freqParam.*(0:length(res.gams_across)-1), ...
-         binWidth./sqrt(squeeze(Gams(1,i,:))), ...
-         'linewidth', 1.5);
+    % Across-group GP timescale progress
+    Gams = cat(3, res.gams_across{:});
+    plotIdx = plotIdx + 1;
+    subplot(1,numPlot,plotIdx);
+    hold on;
+    for i = 1:xDim_across
+        plot(freqParam.*(0:length(res.gams_across)-1), ...
+             binWidth./sqrt(squeeze(Gams(1,i,:))), ...
+             'linewidth', 1.5);
+    end
+    xlabel('# Iterations');
+    ylabel(sprintf('Across-group GP timescales%s', units));
 end
-xlabel('# Iterations');
-ylabel(sprintf('Across-group GP timescales%s', units));
-
+    
 % Within-group GP timescale progress
-plotIdx = 4;
 for groupIdx = 1:numGroups
     % Don't try to plot anything for groups with 0 within-group latents
     if xDim_within(groupIdx) > 0

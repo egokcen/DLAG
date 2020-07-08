@@ -41,7 +41,7 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
 %                                    within-group latents in each group
 %                    yDims        -- (1 x numGroups) array; 
 %                                    dimensionalities of each observed group
-%     mList   -- List specifiyting which top orthonormal latent coordinates
+%     mList   -- List specifiying which top orthonormal latent coordinates
 %                to use for prediction (e.g., 1:5)
 %     rGroups -- (1 x 2) array; Each element specifies a group to be 
 %                included in the regression.
@@ -77,6 +77,7 @@ function [seq, MSE, MSEorth, R2, R2orth] = pairwise_regress_dlag(seq, params, mL
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.
 %     08 Jun 2020 -- Updated to include joint performance metrics.
+%     27 Jun 2020 -- Added 0-across-group dimension functionality.
 
 
 yDims = params.yDims;
@@ -134,43 +135,58 @@ for i = 1:numRGroups
         seqReg(n).T = seq(n).T;
         seqReg(n).y = seq(n).y(sourceIdxs,:);
     end
-    paramsReg   = params;
-    paramsReg.C = params.C(sourceIdxs,:);
-    paramsReg.d = params.d(sourceIdxs);
-    paramsReg.R = params.R(sourceIdxs,sourceIdxs);
     
-    % Infer latents given only the source group
-    seqReg = exactInferenceWithLL_dlag(seqReg, paramsReg, 'getLL', false);
-    
-    % Orthonormalize with respect to the *target* group
-    Ctarget = params.C(targetIdxs,targetLatIdxs);
-    Xtemp = [seqReg.xsm];
-    [Xorth, Corth] = orthogonalize(Xtemp(targetLatIdxs,:), Ctarget);
-    seqReg = segmentByTrial(seqReg, Xorth, 'xorth');
-    
-    for n = 1:length(seq)
-        for m = mList
-            if m > size(Corth,2)
-                break;
+    if xDim_across > 0
+        % Infer latents normally.
+        paramsReg   = params;
+        paramsReg.C = params.C(sourceIdxs,:);
+        paramsReg.d = params.d(sourceIdxs);
+        paramsReg.R = params.R(sourceIdxs,sourceIdxs);
+
+        % Infer latents given only the source group
+        seqReg = exactInferenceWithLL_dlag(seqReg, paramsReg, 'getLL', false);
+
+        % Orthonormalize with respect to the *target* group
+        Ctarget = params.C(targetIdxs,targetLatIdxs);
+        Xtemp = [seqReg.xsm];
+        [Xorth, Corth] = orthogonalize(Xtemp(targetLatIdxs,:), Ctarget);
+        seqReg = segmentByTrial(seqReg, Xorth, 'xorth');
+
+        for n = 1:length(seq)
+            for m = mList
+                if m > size(Corth,2)
+                    break;
+                end
+                fn = sprintf('yregOrth%02d', m);
+                if m > 0
+                    seq(n).(fn)(targetIdxs,:) = Corth(:,1:m) * seqReg(n).xorth(1:m,:) + params.d(targetIdxs);
+                else
+                    seq(n).(fn)(targetIdxs,:) = repmat(params.d(targetIdxs), 1, seq(n).T); 
+                end
             end
-            fn = sprintf('yregOrth%02d', m);
-            seq(n).(fn)(targetIdxs,:) = Corth(:,1:m) * seqReg(n).xorth(1:m,:) + params.d(targetIdxs);
+        end
+    else
+        % Don't infer latents if xDim_across is 0.
+        for n = 1:length(seq)
+            fn = sprintf('yregOrth%02d', xDim_across);
+            seq(n).(fn)(targetIdxs,:) = repmat(params.d(targetIdxs), 1, seq(n).T);
         end
     end
-    
+        
     % Compute individual performance metrics
     Ytrue_indiv = Ytrue_joint(targetIdxs,:);
     % Orthonormalized DLAG performance
-    for m = mList
+    for mIdx = 1:length(mList)
+        m = mList(mIdx);
         fn = sprintf('yregOrth%02d', m);
         Ypred = [seq.(fn)];
         Ypred = Ypred(targetIdxs,:);
         % MSE
-        MSEorth.indiv(m,i) = immse(Ypred, Ytrue_indiv);
+        MSEorth.indiv(mIdx,i) = immse(Ypred, Ytrue_indiv);
         % R2
         RSS = sum( sum( ( Ytrue_indiv - Ypred ).^2, 1 ) );
         TSS = sum( sum( ( Ytrue_indiv - repmat( mean(Ytrue_indiv,2), [1 size(Ytrue_indiv,2)] ) ).^2, 1 ) );
-        R2orth.indiv(m,i) = 1 - RSS / TSS;
+        R2orth.indiv(mIdx,i) = 1 - RSS / TSS;
     end
     % Full model performance
     MSEvalid = MSEorth.indiv(~isnan(MSEorth.indiv(:,i)),i);
@@ -182,15 +198,16 @@ end
 
 % Compute joint performance metrics
 % Orthonormalized model performance
-for m = mList
+for mIdx = 1:length(mList)
+    m = mList(mIdx);
     fn = sprintf('yregOrth%02d', m);
     Ypred = [seq.(fn)];
     % MSE
-    MSEorth.joint(m,1) = immse(Ypred, Ytrue_joint);
+    MSEorth.joint(mIdx,1) = immse(Ypred, Ytrue_joint);
     % R2
     RSS = sum( sum( ( Ytrue_joint - Ypred ).^2, 1 ) );
     TSS = sum( sum( ( Ytrue_joint - repmat( mean(Ytrue_joint,2), [1 size(Ytrue_joint,2)] ) ).^2, 1 ) );
-    R2orth.joint(m,1) = 1 - RSS / TSS;
+    R2orth.joint(mIdx,1) = 1 - RSS / TSS;
 end
 % Full model performance
 MSEvalid = MSEorth.joint(~isnan(MSEorth.joint(:,1)),1);

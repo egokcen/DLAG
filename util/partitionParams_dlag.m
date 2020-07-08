@@ -47,6 +47,7 @@ function outparams = partitionParams_dlag(inparams)
 %
 % Revision history:
 %     16 May 2020 -- Initial full revision.
+%     28 Jun 2020 -- Updated for 0-across-group dimension compatibility.
 
 numGroups = length(inparams.yDims);
 
@@ -62,7 +63,11 @@ for groupIdx = 1:numGroups
     outparams{groupIdx}.xDim_across = inparams.xDim_across;
     outparams{groupIdx}.xDim_within = inparams.xDim_within(groupIdx); 
     outparams{groupIdx}.yDims = inparams.yDims(groupIdx);
-    outparams{groupIdx}.DelayMatrix = inparams.DelayMatrix(groupIdx,:);
+    if inparams.xDim_across > 0
+        outparams{groupIdx}.DelayMatrix = inparams.DelayMatrix(groupIdx,:);
+    else
+        outparams{groupIdx}.DelayMatrix = [];
+    end
     outparams{groupIdx}.gamma_across = inparams.gamma_across;
     outparams{groupIdx}.eps_across = inparams.eps_across;
     outparams{groupIdx}.gamma_within = inparams.gamma_within(groupIdx);

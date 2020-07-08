@@ -48,11 +48,11 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %                                  across CV folds
 %              R2_reg_sem.indiv -- (1 x 2) array; standard error of 
 %                                  R2_reg.indiv across CV folds
-%              R2orth_reg.indiv -- (xDim_across x 2) array; average 
+%              R2orth_reg.indiv -- (xDim_across+1 x 2) array; average 
 %                                  cross-validated R^2 error in each 
 %                                  direction for orthonormalized DLAG 
 %                                  predictions, for the pair in rGroups.
-%              R2orth_reg_sem.indiv -- (xDim_across x 2) array; standard error 
+%              R2orth_reg_sem.indiv -- (xDim_across+1 x 2) array; standard error 
 %                                      of R2orth_reg.indiv across CV folds
 %              MSE_reg.joint -- float; average cross-validated mean-squared
 %                               error, evaluated jointly across the pair in
@@ -64,11 +64,11 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %                                   across CV folds
 %              MSE_reg_sem.indiv -- (1 x 2) array; standard error of 
 %                                   MSE_reg.indiv across CV folds
-%              MSEorth_reg.indiv -- (xDim_across x 2) array; average 
+%              MSEorth_reg.indiv -- (xDim_across+1 x 2) array; average 
 %                                   cross-validated mean-squared error in 
 %                                   each direction for orthonormalized DLAG 
 %                                   predictions, for the pair in rGroups.
-%              MSEorth_reg_sem.indiv -- (xDim_across x 2) array; standard 
+%              MSEorth_reg_sem.indiv -- (xDim_across+1 x 2) array; standard 
 %                                       error of MSEorth_reg.indiv across
 %                                       CV folds
 %              R2_denoise.joint -- float; average cross-validated R^2,
@@ -175,11 +175,11 @@ for modelIdx = 1:numModels
     % R^2 and MSE for pairwise regression, joint and individual
     cvR2_reg.joint = nan(numFolds,1);
     cvR2_reg.indiv = nan(numFolds,2);
-    cvR2orth_reg.indiv = nan(numFolds,xDim_across,2);
+    cvR2orth_reg.indiv = nan(numFolds,xDim_across+1,2);
     
     cvMSE_reg.joint = nan(numFolds,1);
     cvMSE_reg.indiv = nan(numFolds,2);
-    cvMSEorth_reg.indiv = nan(numFolds,xDim_across,2);
+    cvMSEorth_reg.indiv = nan(numFolds,xDim_across+1,2);
     
     % R^2 and MSE for denoised reconstruction, joint and individual
     cvR2_denoise.joint = nan(numFolds,1);
@@ -192,8 +192,8 @@ for modelIdx = 1:numModels
     cvR2orth_denoise.indiv = cell(1,numGroups);
     cvMSEorth_denoise.indiv = cell(1,numGroups);
     for groupIdx = 1:numGroups
-        cvR2orth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx));
-        cvMSEorth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx));
+        cvR2orth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx)+1);
+        cvMSEorth_denoise.indiv{groupIdx} = nan(numFolds,xDim_all(groupIdx)+1);
     end
     
     % Find files with the appropriate models
@@ -255,15 +255,15 @@ for modelIdx = 1:numModels
     res(modelIdx).R2_reg_sem.joint = std(cvR2_reg.joint,0) ./ sqrt(numFolds);
     res(modelIdx).R2_reg.indiv = mean(cvR2_reg.indiv,1);
     res(modelIdx).R2_reg_sem.indiv = std(cvR2_reg.indiv,0,1) ./ sqrt(numFolds);
-    res(modelIdx).R2orth_reg.indiv = squeeze(mean(cvR2orth_reg.indiv,1));
-    res(modelIdx).R2orth_reg_sem.indiv = squeeze(std(cvR2orth_reg.indiv,0,1) ./ sqrt(numFolds));
+    res(modelIdx).R2orth_reg.indiv = reshape(mean(cvR2orth_reg.indiv,1), [xDim_across+1,2,1]);
+    res(modelIdx).R2orth_reg_sem.indiv = reshape(std(cvR2orth_reg.indiv,0,1) ./ sqrt(numFolds), [xDim_across+1,2,1]);
 
     res(modelIdx).MSE_reg.joint = mean(cvMSE_reg.joint);
     res(modelIdx).MSE_reg_sem.joint = std(cvMSE_reg.joint,0) ./ sqrt(numFolds);
     res(modelIdx).MSE_reg.indiv = mean(cvMSE_reg.indiv,1);
     res(modelIdx).MSE_reg_sem.indiv = std(cvMSE_reg.indiv,0,1) ./ sqrt(numFolds);
-    res(modelIdx).MSEorth_reg.indiv = squeeze(mean(cvMSEorth_reg.indiv,1));
-    res(modelIdx).MSEorth_reg_sem.indiv = squeeze(std(cvMSEorth_reg.indiv,0,1) ./ sqrt(numFolds));
+    res(modelIdx).MSEorth_reg.indiv = reshape(mean(cvMSEorth_reg.indiv,1), [xDim_across+1,2,1]);
+    res(modelIdx).MSEorth_reg_sem.indiv = reshape(std(cvMSEorth_reg.indiv,0,1) ./ sqrt(numFolds), [xDim_across+1,2,1]);
 
     % R^2 and MSE for denoised reconstruction, joint and individual
     res(modelIdx).R2_denoise.joint = mean(cvR2_denoise.joint);

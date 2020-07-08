@@ -46,7 +46,7 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %
 %     maxIters  -- int; number of EM iterations to run (default: 1e6)
 %     tolLL     -- float; stopping criterion #1 for EM (based on LL) 
-%                  (default: 1e-7)
+%                  (default: 1e-8)
 %     tolParam  -- float; stopping criterion #2 for EM (based on delays and
 %                  timescales; i.e., if across-group delays and timescales 
 %                  stop changing, stop training.) (default: -Inf)
@@ -122,10 +122,11 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %                    fitting.
 %     26 May 2020 -- Changed default on tolParam from 1e-4 to -Inf (i.e.,
 %                    the default is to not check this criterion).
+%     27 Jun 2020 -- Added 0-across-group dimension functionality
            
 % Optional arguments
 maxIters     = 1e6;
-tolLL        = 1e-7;
+tolLL        = 1e-8;
 tolParam     = -Inf;
 freqLL       = 10;
 freqParam    = 100;
@@ -215,41 +216,43 @@ for i =  1:maxIters
         % Across- and within-group GP kernel parameters can be learned
         % independently, so it's convenient to separate them here.
         [seqAcross, seqWithin] = partitionLatents(seq, xDim_across, xDim_within);
-        
-        % Across-group parameters
         tempParams = currentParams;
-        tempParams.xDim = xDim_across;
-        tempParams.gamma = currentParams.gamma_across;
-        tempParams.eps = currentParams.eps_across;
-        % learnGPparams_pluDelays performs gradient descent to learn kernel
-        % parameters WITH delays
-        res = learnGPparams_plusDelays(seqAcross, tempParams, ...
-                                       'algorithm','em',extra_opts{:});
-        switch currentParams.covType
-            case 'rbf'
-                currentParams.gamma_across = res.gamma; 
-                if learnDelays
-                    % Only update delays if desired. Otherwise, they will
-                    % remain fixed at their initial value.
-                    currentParams.DelayMatrix = res.DelayMatrix;
-                end
-                if (rem(i, freqParam) == 0) || (i == maxIters)
-                    % Store current delays and timescales and compute
-                    % change since last computation
-                    D = [D {currentParams.DelayMatrix}];
-                    gams_across = [gams_across {currentParams.gamma_across}];
-                    deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
-                    deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
-                else
-                    deltaD_i = NaN;
-                    deltaGam_across_i = NaN;
-                end
-                
-        end
-        
-        % NOTE: Learning GP noise variance is currently unsupported.
-        if currentParams.notes.learnGPNoise
-            currentParams.eps_across = res.eps;
+        % Don't try to learn GP parameters when xDim_across is 0
+        if xDim_across > 0
+            % Across-group parameters
+            tempParams.xDim = xDim_across;
+            tempParams.gamma = currentParams.gamma_across;
+            tempParams.eps = currentParams.eps_across;
+            % learnGPparams_pluDelays performs gradient descent to learn kernel
+            % parameters WITH delays
+            res = learnGPparams_plusDelays(seqAcross, tempParams, ...
+                                           'algorithm','em',extra_opts{:});
+            switch currentParams.covType
+                case 'rbf'
+                    currentParams.gamma_across = res.gamma; 
+                    if learnDelays
+                        % Only update delays if desired. Otherwise, they will
+                        % remain fixed at their initial value.
+                        currentParams.DelayMatrix = res.DelayMatrix;
+                    end
+                    if (rem(i, freqParam) == 0) || (i == maxIters)
+                        % Store current delays and timescales and compute
+                        % change since last computation
+                        D = [D {currentParams.DelayMatrix}];
+                        gams_across = [gams_across {currentParams.gamma_across}];
+                        deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
+                        deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
+                    else
+                        deltaD_i = NaN;
+                        deltaGam_across_i = NaN;
+                    end
+
+            end
+
+            % NOTE: Learning GP noise variance is currently unsupported.
+            if currentParams.notes.learnGPNoise
+                currentParams.eps_across = res.eps;
+            end
         end
         
         % Within-group parameters: Learning these parameters is identical
@@ -327,7 +330,7 @@ if ~err_status
 end
 
 if verbose && ~parallelize
-    fprintf('\n%s\n', msg);
+    fprintf('%s\n', msg);
 end
     
 estParams = currentParams;

@@ -30,6 +30,7 @@ function [seqAcross, seqWithin] = partitionLatents_meanOnly(seq, xDim_across, xD
 % seqAcross -- data structure containing across-group neural trajectories:
 %               (xspec)  -- ((numGroups*xDim_across) x T) array;
 %                           posterior mean at each timepoint
+%              If xDim_across is 0, then seqAcross will be empty.
 % seqWithin -- (1 x numGroups) cell array; each element contains a data
 %              structure, which contains within-group neural trajectories
 %               (xspec)  -- (xDim_within(i) x T) array; posterior mean at
@@ -42,6 +43,9 @@ function [seqAcross, seqWithin] = partitionLatents_meanOnly(seq, xDim_across, xD
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.   
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     27 Jun 2020 -- Patched potential indexing error (acrossIdxs_start)
+%                    for numbers of groups greater than 2. Added
+%                    0-across-group dimension functionality.
 
 
     xspec     = 'xsm';
@@ -49,19 +53,24 @@ function [seqAcross, seqWithin] = partitionLatents_meanOnly(seq, xDim_across, xD
     numGroups = length(xDim_within);
     N         = length(seq(:));
     
+    seqAcross = {};
     seqWithin = cell(1,numGroups);
     for n = 1:N
         % Initialize output structures
-        seqAcross(n).(xspec) = [];
-        seqAcross(n).T = seq(n).T;
+        if xDim_across > 0
+            seqAcross(n).(xspec) = [];
+            seqAcross(n).T = seq(n).T;
+        end
         for groupIdx = 1:numGroups
             if groupIdx > 1
-                acrossIdxs_start = 1+(groupIdx-1)*xDim_across+sum(xDim_within(1:numGroups-1));
+                acrossIdxs_start = 1+(groupIdx-1)*xDim_across+sum(xDim_within(1:groupIdx-1));
             else
                 acrossIdxs_start = 1;
             end
             acrossIdxs_end = acrossIdxs_start + xDim_across - 1;
-            seqAcross(n).(xspec) = [seqAcross(n).(xspec); seq(n).(xspec)(acrossIdxs_start:acrossIdxs_end,:)];
+            if xDim_across > 0
+                seqAcross(n).(xspec) = [seqAcross(n).(xspec); seq(n).(xspec)(acrossIdxs_start:acrossIdxs_end,:)];
+            end
             if xDim_within(groupIdx) > 0
                 withinIdxs_start = acrossIdxs_end + 1;
                 withinIdxs_end = withinIdxs_start + xDim_within(groupIdx) - 1;
