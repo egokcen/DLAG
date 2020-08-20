@@ -5,11 +5,13 @@ function estParams = indepGroupFit(Ys)
 % Description: Fit parameters of a pCCA model assuming each group is
 %              independent.
 %
-% Arguments: 
+% Arguments:
+%
 %     Ys -- (1 x numGroups) cell array; list of data matrices 
 %           {(y1Dim x N), (y2Dim x N), ...}
 %
-% OUTPUTS:
+% Outputs:
+%
 %     estParams.Rs -- (1 x numGroups) cell array; Blocks of uniqueness 
 %                     matrix {(y1Dim x y1Dim), (y2Dim x y2Dim), ...}
 %     estParams.ds -- (1 x numGroups) cell array; List of data means 

@@ -1,10 +1,11 @@
-function dim = getNumDim_dlag(res,varargin)
+function dim = getNumOrthDim_dlag(res,varargin)
 % 
-% dim = getNumDim_dlag(res,...)
+% dim = getNumOrthDim_dlag(res,...)
 %
 % Description: Determine the number of across-group dimensions, and the
 %              number of overall dimensions required to explain each area,
-%              based on the cross-validated results in res.
+%              based on the cross-validated results for the orthonormalized
+%              model in res.
 %
 % Arguments:
 %

@@ -1,6 +1,6 @@
-function plotPerfvsDim_dlag(res,plotAcross,varargin)
+function plotPerfvsDim_dlag(res,varargin)
 % 
-% plotPerfvsDim_dlag(res,plotAcross,...)
+% plotPerfvsDim_dlag(res,...)
 %
 % Description: Plot cross-validated performance metrics vs
 %              latent dimensionality.
@@ -69,13 +69,12 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %              rGroups -- (1 x 2) array; the indexes of two groups 
 %                         used to measure generalization performance
 %                         via regression
+% 
+%     Optional:
 %
 %     plotAcross -- logical; set true to plot performance vs across-group
 %                   dimensionality, while holding within-group
 %                   dimensionalities fixed.
-% 
-%     Optional:
-%
 %     groupIdx  -- int; if plotAcross is false, then plot performance vs
 %                  within-group dimensionality. groupIdx specifies
 %                  which group to use. (default: 1)
@@ -86,6 +85,13 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %                  (default: res(1).xDim_within)
 %     fixAcross -- int; Fixed across-group dimensionality 
 %                  (default: res(1).xDim_across)
+%     xDims_grid -- (numModels x numGroups+1) array; Each row specifies
+%                   a particular model to be plotted, where 
+%                   xDims_grid(i,:) = [xDim_across_i xDim_within_i]
+%                   gives the across- and within-group dimensionalities
+%                   for model i to be considered. (default: [])
+%                   NOTE: If xDims_grid is specified, then it overrides all
+%                         other optional arguments.
 % 
 % Outputs:
 %     None. (But creates figures)
@@ -101,10 +107,13 @@ function plotPerfvsDim_dlag(res,plotAcross,varargin)
 %     12 Jun 2020 -- Updated for expanded cross-validation metrics.
 %                    Plotting of orthonormalized DLAG performance moved
 %                    elsewhere.
+%     16 Aug 2020 -- Added xDims_grid option.
 
+plotAcross = true;
 groupIdx = 1;
 fixWithin = res(1).xDim_within;
 fixAcross = res(1).xDim_across;
+xDims_grid = [];
 assignopts(who, varargin);
 
 numGroups = length(fixWithin);
@@ -117,35 +126,56 @@ colors = generateColors(); % Generate custom plotting colors
 % ====================================================
 
 keepIdxs = [];
-if plotAcross
-    % Only plot models with within-group dimensionalities that match
-    % fixWithin
-    xDim = [];
-    for modelIdx = 1:numModels
-        if isequal(res(modelIdx).xDim_within, fixWithin)
-            keepIdxs = [keepIdxs modelIdx]; 
-            xDim = [xDim res(modelIdx).xDim_across];
+if ~isempty(xDims_grid)
+    % Only plot models with across- and within-group dimensionalities that 
+    % match the rows of xDims_grid.
+    xtklbl = {};
+    for gridIdx = 1:size(xDims_grid,1)
+        xDim_across = xDims_grid(gridIdx,1);
+        xDim_within = xDims_grid(gridIdx,2:end);
+        for modelIdx = 1:numModels
+            if res(modelIdx).xDim_across == xDim_across && isequal(res(modelIdx).xDim_within, xDim_within)
+                keepIdxs = [keepIdxs modelIdx];
+                xtklbl{end+1} = sprintf('[%s]', num2str(xDims_grid(gridIdx,:)));
+            end
         end
     end
-    xlbl = {'Across-group dimensionality'; ...
-            sprintf('(Within-group fixed at [%s])', num2str(fixWithin))};
+    xlbl = {'Model candidate'};
+    
+    
 else
-    % Get the indices of all groups other than groupIdx
-    otherIdxs = setdiff(1:numGroups, groupIdx);
-    % Only plot models with across- and within-group dimensionalities that
-    % match fixAcross and fixWithin
-    xDim = [];
-    for modelIdx = 1:numModels
-        if isequal(res(modelIdx).xDim_within(otherIdxs), fixWithin(otherIdxs)) ...
-                && isequal(res(modelIdx).xDim_across, fixAcross)
-            
-            keepIdxs = [keepIdxs modelIdx]; 
-            xDim = [xDim res(modelIdx).xDim_within(groupIdx)];
+    
+    if plotAcross
+        % Only plot models with within-group dimensionalities that match
+        % fixWithin
+        xtklbl = {};
+        for modelIdx = 1:numModels
+            if isequal(res(modelIdx).xDim_within, fixWithin)
+                keepIdxs = [keepIdxs modelIdx]; 
+                xtklbl{end+1} = num2str(res(modelIdx).xDim_across);
+            end
         end
+        xlbl = {'Across-group dimensionality'; ...
+                sprintf('(Within-group fixed at [%s])', num2str(fixWithin))};
+    else
+        % Get the indices of all groups other than groupIdx
+        otherIdxs = setdiff(1:numGroups, groupIdx);
+        % Only plot models with across- and within-group dimensionalities that
+        % match fixAcross and fixWithin
+        xtklbl = {};
+        for modelIdx = 1:numModels
+            if isequal(res(modelIdx).xDim_within(otherIdxs), fixWithin(otherIdxs)) ...
+                    && isequal(res(modelIdx).xDim_across, fixAcross)
+
+                keepIdxs = [keepIdxs modelIdx]; 
+                xtklbl{end+1} = num2str(res(modelIdx).xDim_within(groupIdx));
+            end
+        end
+        xlbl = {sprintf('Within-group %d dimensionality', groupIdx); ...
+                sprintf('(Across-group fixed at %d, Within-group fixed at [%s])',...
+                       fixAcross, num2str(fixWithin(otherIdxs)))};
     end
-    xlbl = {sprintf('Within-group %d dimensionality', groupIdx); ...
-            sprintf('(Across-group fixed at %d, Within-group fixed at [%s])',...
-                   fixAcross, num2str(fixWithin(otherIdxs)))};
+    
 end
 
 % Throw out irrelevant models
@@ -179,16 +209,18 @@ sumLL = nan(1,numModels);
 for modelIdx = 1:numModels
     sumLL(modelIdx) = res(modelIdx).sumLL.joint;
 end
-plot(xDim, sumLL, 'o-', 'Color', colors.blues{1}, ...
+plot(1:numModels, sumLL, 'o-', 'Color', colors.blues{1}, ...
      'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
 
 % Mark the best model among the plotted models.
-legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
+legendEntries = plot(bestModel, sumLL(bestModel), 'p', ...
                      'color', colors.reds{4}, ...
                      'markerfacecolor', colors.reds{4}, ...
                      'markersize', 10);
 legendLabels = 'best model';
 legend(legendEntries, legendLabels, 'Location', 'southeast');
+xticks(1:numModels);
+xticklabels(xtklbl);
 hold off;
 
 % Plot R2 versus latent dimensionality
@@ -205,7 +237,7 @@ for modelIdx = 1:numModels
     R2_denoise(modelIdx) = res(modelIdx).R2_denoise.joint;
     R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.joint;
 end
-legendEntries(end+1) = errorbar(xDim, R2_denoise, R2_denoise_sem, 'o-', ...
+legendEntries(end+1) = errorbar(1:numModels, R2_denoise, R2_denoise_sem, 'o-', ...
     'linewidth', 1.5, 'Color', colors.grays{1}, ...
     'MarkerFaceColor', colors.grays{1});
 
@@ -216,13 +248,15 @@ for modelIdx = 1:numModels
     R2_reg(modelIdx) = res(modelIdx).R2_reg.joint;
     R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.joint;
 end
-legendEntries(end+1) = errorbar(xDim, R2_reg, R2_reg_sem, 'o-', ...
+legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
     'linewidth', 1.5, 'Color', colors.reds{3}, ...
     'MarkerFaceColor', colors.reds{3});
 
 xlabel(xlbl);
 ylabel('Cross-validated R^2, joint');
 legend(legendEntries, legendLabels, 'Location', 'southeast');
+xticks(1:numModels);
+xticklabels(xtklbl);
 hold off;
 
 % Plot MSE versus latent dimensionality
@@ -239,7 +273,7 @@ for modelIdx = 1:numModels
     MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.joint;
     MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.joint;
 end
-legendEntries(end+1) = errorbar(xDim, MSE_denoise, MSE_denoise_sem, 'o-', ...
+legendEntries(end+1) = errorbar(1:numModels, MSE_denoise, MSE_denoise_sem, 'o-', ...
     'linewidth', 1.5, 'Color', colors.grays{1}, ...
     'MarkerFaceColor', colors.grays{1});
 
@@ -250,13 +284,15 @@ for modelIdx = 1:numModels
     MSE_reg(modelIdx) = res(modelIdx).MSE_reg.joint;
     MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.joint;
 end
-legendEntries(end+1) = errorbar(xDim, MSE_reg, MSE_reg_sem, 'o-', ...
+legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
     'linewidth', 1.5, 'Color', colors.reds{3}, ...
     'MarkerFaceColor', colors.reds{3});
 
 xlabel(xlbl);
 ylabel('Cross-validated MSE, joint');
 legend(legendEntries, legendLabels, 'Location', 'northeast');
+xticks(1:numModels);
+xticklabels(xtklbl);
 hold off;
 
 % =========================================
@@ -275,16 +311,18 @@ for groupIdx = 1:numGroups
     for modelIdx = 1:numModels
         sumLL(modelIdx) = res(modelIdx).sumLL.indiv(groupIdx);
     end
-    plot(xDim, sumLL, 'o-', 'Color', colors.blues{1}, ...
+    plot(1:numModels, sumLL, 'o-', 'Color', colors.blues{1}, ...
          'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
 
     % Mark the best model among the plotted models.
-    legendEntries = plot(xDim(bestModel), sumLL(bestModel), 'p', ...
+    legendEntries = plot(bestModel, sumLL(bestModel), 'p', ...
                          'color', colors.reds{4}, ...
                          'markerfacecolor', colors.reds{4}, ...
                          'markersize', 10);
     legendLabels = 'best model';
     legend(legendEntries, legendLabels, 'Location', 'southeast');
+    xticks(1:numModels);
+    xticklabels(xtklbl);
     hold off;
     
     % Plot R2 versus latent dimensionality
@@ -301,7 +339,7 @@ for groupIdx = 1:numGroups
         R2_denoise(modelIdx) = res(modelIdx).R2_denoise.indiv(groupIdx); 
         R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.indiv(groupIdx);
     end
-    legendEntries(end+1) = errorbar(xDim, R2_denoise, R2_denoise_sem, 'o-', ...
+    legendEntries(end+1) = errorbar(1:numModels, R2_denoise, R2_denoise_sem, 'o-', ...
         'linewidth', 1.5, 'Color', colors.grays{1}, ...
         'MarkerFaceColor', colors.grays{1});
     legendLabels{end+1} = 'denoised';
@@ -317,7 +355,7 @@ for groupIdx = 1:numGroups
             R2_reg(modelIdx) = res(modelIdx).R2_reg.indiv(predIdx); 
             R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.indiv(predIdx);
         end
-        legendEntries(end+1) = errorbar(xDim, R2_reg, R2_reg_sem, 'o-', ...
+        legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
             'linewidth', 1.5, 'Color', colors.reds{3}, ...
             'MarkerFaceColor', colors.reds{3});
         legendLabels{end+1} = 'regression';
@@ -325,6 +363,8 @@ for groupIdx = 1:numGroups
     xlabel(xlbl);
     ylabel(sprintf('Cross-validated R^2, group %d', groupIdx));
     legend(legendEntries, legendLabels, 'Location', 'southeast');
+    xticks(1:numModels);
+    xticklabels(xtklbl);
     hold off;
 
     % Plot MSE versus latent dimensionality
@@ -341,7 +381,7 @@ for groupIdx = 1:numGroups
         MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.indiv(groupIdx); 
         MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.indiv(groupIdx);
     end
-    legendEntries(end+1) = errorbar(xDim, MSE_denoise, MSE_denoise_sem, 'o-', ...
+    legendEntries(end+1) = errorbar(1:numModels, MSE_denoise, MSE_denoise_sem, 'o-', ...
         'linewidth', 1.5, 'Color', colors.grays{1}, ...
         'MarkerFaceColor', colors.grays{1});
     legendLabels{end+1} = 'denoised';
@@ -357,7 +397,7 @@ for groupIdx = 1:numGroups
             MSE_reg(modelIdx) = res(modelIdx).MSE_reg.indiv(predIdx); 
             MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.indiv(predIdx);
         end
-        legendEntries(end+1) = errorbar(xDim, MSE_reg, MSE_reg_sem, 'o-', ...
+        legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
             'linewidth', 1.5, 'Color', colors.reds{3}, ...
             'MarkerFaceColor', colors.reds{3});
         legendLabels{end+1} = 'regression';
@@ -365,5 +405,7 @@ for groupIdx = 1:numGroups
     xlabel(xlbl);
     ylabel(sprintf('Cross-validated MSE, group %d', groupIdx));
     legend(legendEntries, legendLabels, 'Location', 'northeast');
+    xticks(1:numModels);
+    xticklabels(xtklbl);
     hold off;
 end

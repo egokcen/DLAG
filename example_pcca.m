@@ -7,7 +7,7 @@
 % section-by-section, rather than all at once (or put a break point before
 % Section 2, as it may take a long time).
 %
-% Section 1 demsonstrates how pCCA can be used for exploratory data
+% Section 1 demonstrates how pCCA can be used for exploratory data
 % analysis.
 %
 %     Section 1a fits a pCCA model with a specified number of across-group
@@ -130,7 +130,7 @@ plotTraj(Ytest, xspec, ...
 % Change other input arguments as appropriate
 runIdx = 5;
 numFolds = 4;
-xDim = 0:min(yDims); % Sweep over these dimensionalities
+xDim = 0:min(yDims)-1; % Sweep over these dimensionalities
 
 fit_pcca(runIdx, Ytrain, ...
          'baseDir', baseDir, ...
@@ -156,3 +156,9 @@ plotPerfvsDim_pcca(cvResults, ...
                    'plotLL', true, ...
                    'plotR2', true, ...
                    'plotMSE', true);
+               
+% Find a conservative estimate of optimal across-group dimensionality.
+cutoffPC = 0.95;
+d_shared = findSharedDimCutoff_pcca(cvResults(bestModel).estParams, ...
+                                    cutoffPC, ...
+                                    'plotSpec', true)

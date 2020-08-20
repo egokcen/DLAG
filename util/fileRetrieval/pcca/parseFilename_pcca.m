@@ -26,8 +26,8 @@ err    = false;
 
 undi = find(str == '_');
 if isempty(undi)   
-err    = true;
-return
+    err    = true;
+    return
 end
 
 result.method = str(1:undi(1)-1);    
@@ -35,13 +35,13 @@ result.method = str(1:undi(1)-1);
 [A, count, errmsg] = sscanf(str(undi(1)+1:end), 'xDim%d_cv%d.mat');
 
 if (count < 1) || (count > 2)
-err = true;
-return
+    err = true;
+    return
 end
 
 result.xDim = A(1);
 if count == 1
-result.cvf = 0;
+    result.cvf = 0;
 else
-result.cvf = A(2);
+    result.cvf = A(2);
 end

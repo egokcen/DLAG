@@ -1,13 +1,12 @@
-function result = fit_pcca(runIdx, dat, varargin)
+function result = fit_fa(runIdx, dat, varargin)
 %
-% result = fit_pcca(runIdx, dat,...)
+% result = fit_fa(runIdx, dat,...)
 %
 % Description: This function does most of the front-end work for fitting
-%              the probabilistic canonical correlation analysis (pCCA).
-%              It prepares directories for saved results, sets up 
-%              cross-validation folds (along with parallelization), and 
-%              then calls the functions that actually estimate model 
-%              parameters.
+%              factor analysis models. It prepares directories for saved 
+%              results, sets up cross-validation folds (along with 
+%              parallelization), and then calls the functions that actually
+%              estimate model parameters.
 %
 % Arguments: 
 %
@@ -40,8 +39,8 @@ function result = fit_pcca(runIdx, dat, varargin)
 %
 %     baseDir     -- string; specifies directory in which to store
 %                    mat_results. (default: '.', i.e., current directory)
-%     method      -- string; method to be used (right now, just 'pcca') 
-%                    (default: 'pcca')
+%     method      -- string; method to be used (right now, just 'fa') 
+%                    (default: 'fa')
 %     binWidth    -- float; bin width or sample period, in units of time
 %                    (e.g., ms) (default: 20)
 %     numFolds    -- int; number of cross-validation folds (default: 0).
@@ -49,13 +48,12 @@ function result = fit_pcca(runIdx, dat, varargin)
 %     yDims       -- (1 x numGroups) array; Specify the number of features 
 %                    (neurons) in each group (area). Elements in yDims
 %                    should match the format of dat.
-%     xDims       -- (1 x numDims) array; across-group state 
-%                     dimensionalities to be modeled. For example, to fit
-%                     3 separate models, each with 1, 2, and 3 across-group
-%                     dimensions, input 1:3 or [1 2 3]. (default: [3])
-%     rGroups     -- (1 x 2) array; the indexes of two groups 
-%                    used to measure generalization performance
-%                    via regression (default: [1 2])
+%     xDims       -- (1 x numGroups) cell array; 
+%                    xDims{i} -- (1 x numDims) array; latent 
+%                      dimensionalities to be modeled for group i. For 
+%                      example, to fit 3 separate models, each with 1, 2, 
+%                      and 3 dimensions, input 1:3 or [1 2 3]. 
+%                      (default: {})
 %     parallelize -- logical; Set to true to use Matlab's parfor construct
 %                    to parallelize each fold and latent dimensionality 
 %                    using multiple cores. (default: false)
@@ -70,23 +68,20 @@ function result = fit_pcca(runIdx, dat, varargin)
 %
 % Outputs:
 %
-%     result -- structure containing all variables saved in 
-%               ./mat_results/runXXX/ if 'numFolds' is 0.  
-%               Else, the structure is empty. These variables should help
-%               with reproducibility, and include:
+%     Results are saved to a file. These variables should help with 
+%     reproducibility, and include:
 %               
 %               fname       -- string; path to file where variables are 
 %                              stored
-%               method      -- string; method that was used ('pcca')
+%               method      -- string; method that was used ('fa')
 %               rngSettings -- structure with the random number generator 
 %                              settings used during run time. Includes 
 %                              fields 'Type', 'Seed', and 'State'.
-%               xDim        -- int; number of across-group dimensions
-%               yDims       -- (1 x numGroups) array; observation
-%                              dimensionalities of each group
-%               rGroups     -- (1 x 2) array; the indexes of two groups 
-%                              used to measure generalization performance
-%                              via regression
+%               groupIdx    -- int; indicates the group to which this FA
+%                              model was fit.
+%               xDim        -- int; number of latent dimensions
+%               yDim        -- observation dimensionality of the group to
+%                              which this FA model was fit.
 %               binWidth    -- float; bin width or sample period, in units 
 %                              of time (e.g., ms)
 %               parallelize -- logical; indicates whether or not 
@@ -94,12 +89,12 @@ function result = fit_pcca(runIdx, dat, varargin)
 %               saveData    -- logical; indicates whether or not train and 
 %                              test data is saved in this file.
 %               startParams -- structure containing parameter values
-%                              at which pCCA EM procedure was initialized.
+%                              at which FA EM procedure was initialized.
 %               estParams   -- structure containing final static model 
 %                              parameter estimates, after model fitting was
 %                              completed.
 %               LL          -- (1 x numIters) array; data log likelihood  
-%                              after each pCCA EM iteration
+%                              after each FA EM iteration
 %               LLtrain     -- float; final data log likelihood evaluated 
 %                              on train data
 %               cvf         -- int; indicates which cross-validation fold 
@@ -119,34 +114,20 @@ function result = fit_pcca(runIdx, dat, varargin)
 %     
 %     LLtest  -- float; final data log likelihood evaluated 
 %                on test data
-%     MSE     -- (1 x 2) array; mean-squared error in each pairwise 
-%                direction, for pairwise regression performed on test data
-%     R2      -- (1 x 2) array; R^2 in each pairwise direction, for
-%                pairwise regression performed on test data
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
-%     11 Mar 2020 -- Initial full revision.
-%     07 May 2020 -- Added option to seed random number generator.
-%     13 May 2020 -- Error will be thrown if yDims specified incorrectly.
-%                    Removed hasSpikesBool functionality, which removed
-%                    inactive units based on the training set.
-%     14 May 2020 -- Removed datFormat option. Spiking data can be
-%                    preprocessed separately, if desired, with getSeq.m
-%     24 May 2020 -- Moved printed info about fitted models from
-%                    call_pcca_engine.m to here. That move cleans up prints 
-%                    during parallelization.
+%     16 Aug 2020 -- Initial full revision.
 
 % Specify defaults for optional arguments
 baseDir              = '.';
-method               = 'pcca';
+method               = 'fa';
 binWidth             = 20;
 numFolds             = 0;
 yDims                = [];
-xDims                = [3];
-rGroups              = [1 2];
+xDims                = {};
 parallelize          = false;
 numWorkers           = 4;
 randomSeed           = 0;
@@ -193,61 +174,77 @@ if numFolds > 0
 end
 
 i = 1;
-for xDim = xDims
-    for cvf = cvf_list
-        % Set cross-validation folds
-        val = false(1, N);
-        if cvf > 0
-            val = (val_indices == cvf);
+for cvf = cvf_list
+    % Set cross-validation folds
+    val = false(1, N);
+    if cvf > 0
+        val = (val_indices == cvf);
+    end
+    train = ~val;
+
+    seqTrain      = dat(train);
+    seqTest       = dat(val);
+    
+    % Split observations according to their groups.
+    groupSeqTrain = partitionObs(seqTrain, yDims);
+    groupSeqTest = partitionObs(seqTest, yDims);
+    
+    % Setup FA models for each group separately
+    for groupIdx = 1:numGroups
+        curr_xDims = xDims{groupIdx}; % List of candidate dimensionalities
+        
+        % Grab only observations corresponding to the current group.
+        currTrain = groupSeqTrain{groupIdx};
+        currTest = groupSeqTest{groupIdx};
+        
+        for xDim = curr_xDims
+            % Check if training data covariance is full rank
+            yAll = [currTrain.y];
+            yDim  = size(yAll, 1);
+            if rank(cov(yAll')) < yDim
+                fprintf('ERROR: Observation covariance matrix for group %d is rank deficient.\n', groupIdx);
+                fprintf('Possible causes: repeated units, not enough observations.\n');
+                fprintf('Exiting...\n');
+                return
+            end
+
+            cvf_params(i).seqTrain = currTrain;
+            cvf_params(i).seqTest = currTest;
+
+            % Specify filename where results will be saved
+            fname = sprintf('%s/%s_group%02d_xDim%02d', runDir, method, groupIdx, xDim);
+            if cvf > 0
+                fname = sprintf('%s_cv%02d', fname, cvf);
+            end
+            cvf_params(i).fname = fname;
+            cvf_params(i).groupIdx = groupIdx;
+            cvf_params(i).xDim = xDim;
+            cvf_params(i).cvf = cvf;
+            i = i+1;
         end
-        train = ~val;
-        
-        seqTrain      = dat(train);
-        seqTest       = dat(val);
-        
-        % Check if training data covariance is full rank
-        yAll = [seqTrain.y];
-        yDim  = size(yAll, 1);
-        if rank(cov(yAll')) < yDim
-            fprintf('ERROR: Observation covariance matrix is rank deficient.\n');
-            fprintf('Possible causes: repeated units, not enough observations.\n');
-            fprintf('Exiting...\n');
-            return
-        end
-        
-        cvf_params(i).seqTrain = seqTrain;
-        cvf_params(i).seqTest = seqTest;
-        
-        % Specify filename where results will be saved
-        fname = sprintf('%s/%s_xDim%02d', runDir, method, xDim);
-        if cvf > 0
-            fname = sprintf('%s_cv%02d', fname, cvf);
-        end
-        cvf_params(i).fname = fname;
-        cvf_params(i).xDim = xDim;
-        cvf_params(i).cvf = cvf;
-        i = i+1;
     end
 end
-
+    
 % Set up parallelization, if desired
 if parallelize
     StartParPool(numWorkers);  % Helper function to set up parfor construct
     parfor i = 1:length(cvf_params)
         % Print minimal info about the model to be fitted.
-        fprintf('Across-group: %d, CV Fold: %d of %d\n', ...
-             cvf_params(i).xDim, cvf_params(i).cvf, numFolds);
+        fprintf('Group: %d of %d, xDim: %d, CV Fold: %d of %d\n', ...
+             cvf_params(i).groupIdx, numGroups, cvf_params(i).xDim, cvf_params(i).cvf, numFolds);
         
-        % Call the pCCA engine
-        call_pcca_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
-            cvf_params(i).seqTest, 'method', method, 'yDims', yDims, ...
+        % Call the FA engine
+        call_fa_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
+            cvf_params(i).seqTest, 'method', method, ...
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...
-            'rGroups', rGroups, 'parallelize', parallelize, ... 
+            'groupIdx', cvf_params(i).groupIdx, 'parallelize', parallelize, ...
             'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});  
     end
 else % Otherwise, continue without settup up parallelization
     for i = 1:length(cvf_params)
         % Print useful info about the model about to be fitted.
+        fprintf('\n=================\nGroup %d of %d\n=================\n',...
+                cvf_params(i).groupIdx, numGroups);
         if cvf_params(i).cvf == 0
             fprintf('\n===== Training on all data =====\n');
         else
@@ -256,22 +253,14 @@ else % Otherwise, continue without settup up parallelization
         end
         fprintf('Number of training trials: %d\n', length(cvf_params(i).seqTrain));
         fprintf('Number of test trials: %d\n', length(cvf_params(i).seqTest));
-        fprintf('Across-group latent dimensionality: %d\n', cvf_params(i).xDim);
+        fprintf('Latent dimensionality: %d\n', cvf_params(i).xDim);
         fprintf('Observation dimensionality: %d\n', size(cvf_params(i).seqTrain(1).y,1));
         
-        % Call the pCCA engine
-        call_pcca_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
-            cvf_params(i).seqTest, 'method', method, 'yDims', yDims, ...
+        % Call the FA engine
+        call_fa_engine(cvf_params(i).fname, cvf_params(i).seqTrain, ...
+            cvf_params(i).seqTest, 'method', method, ...
             'xDim', cvf_params(i).xDim, 'cvf', cvf_params(i).cvf, ...
-            'rGroups', rGroups, 'parallelize', parallelize, ...
+            'groupIdx', cvf_params(i).groupIdx, 'parallelize', parallelize, ...
             'binWidth', binWidth, 'rngSettings', rngSettings, extraOpts{:});        
     end
-end
-
-% Results are saved to a file.
-% Here, return those results (from the file) only if not doing
-% cross-validation
-result = {};
-if (nargout == 1) && (numFolds == 0) && exist([cvf_params(1).fname '.mat'], 'file')
-    result = load(cvf_params(1).fname);
 end

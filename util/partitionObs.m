@@ -22,12 +22,20 @@ function groupSeq = partitionObs(seq, dims, varargin)
 %     datafield -- string; Name of data field in seq (default: 'y')
 %
 % Outputs:
-%
+%     groupSeq -- (1 x numGroups) cell array; groupSeq{i} is a data 
+%                 structure, whose nth entry (corresponding to
+%                 the nth trial) has fields
+%                   trialId                   -- unique trial identifier
+%                   T (1 x 1)                 -- number of timesteps
+%                   (datafield) (dims(i) x T) -- continuous valued data,
+%                                                corresponding to group i
+% 
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     16 May 2020 -- Initial full revision.
+%     16 Aug 2020 -- FIlled in gaps in documentation.
 
 datafield = 'y';
 extraOpts = assignopts(who, varargin);

@@ -1,5 +1,6 @@
 addpath core_dlag
 addpath core_pcca
+addpath core_fa
 addpath plotting
 addpath post-selection_inference
 addpath simulation
@@ -10,6 +11,7 @@ addpath util/precomp
 addpath util/fileRetrieval
 addpath util/fileRetrieval/dlag
 addpath util/fileRetrieval/pcca
+addpath util/fileRetrieval/fa
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The following code checks for the relevant MEX files (such as .mexa64

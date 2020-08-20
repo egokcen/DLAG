@@ -6,6 +6,7 @@ function [LL, R2, MSE] = indepGroupEval(Ys, params, rGroups)
 %              are independent.
 %
 % Arguments:
+%
 %     Ys -- (1 x numGroups) cell array; list of data matrices 
 %           {(y1Dim x N), (y2Dim x N), ...}
 %     params.Rs -- (1 x numGroups) cell array; Blocks of uniqueness 
@@ -16,6 +17,7 @@ function [LL, R2, MSE] = indepGroupEval(Ys, params, rGroups)
 %                  included in the regression.
 %
 % Outputs:
+%
 %     LL  -- float; log likelihood of the data
 %     R2  -- (1 x 2) array; R^2 in each pairwise direction 
 %     MSE -- (1 x 2) array; mean-squared error in each pairwise direction

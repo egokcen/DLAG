@@ -105,7 +105,9 @@ Cs = cell(1,numGroups);
 Rs = cell(1,numGroups);
 ds = cell(1,numGroups);
 for groupIdx = 1:numGroups
-    fprintf('\nFitting FA model to group %d of %d\n', groupIdx, numGroups);
+    if ~parallelize
+        fprintf('\nFitting FA model to group %d of %d\n', groupIdx, numGroups);
+    end
     [faParams, ~] = em_fa(Ys{groupIdx}, xDim(groupIdx), ...
                           'parallelize', parallelize, extraOpts{:});
     Cs{groupIdx} = faParams.C;

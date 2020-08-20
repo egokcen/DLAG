@@ -1,10 +1,12 @@
-function d_shared = findSharedDimCutoff(params, cutoffPC, varargin)
+function d_shared = findSharedDimCutoff_dlag(params, cutoffPC, varargin)
 %
-% d_shared = findSharedDimCutoff(params, cutoffPC, ...)
+% d_shared = findSharedDimCutoff_dlag(params, cutoffPC, ...)
 %
 % Description: Find the number of overall dimensions (within or across) 
 %              that explain a certain percentage of shared variance, 
 %              jointly across all groups and for each group individually.
+%              Also, find the numer of across-group dimensions that explain
+%              a certain percentage of the shared across-group covariance.
 %
 % Arguments:
 % 
@@ -26,16 +28,21 @@ function d_shared = findSharedDimCutoff(params, cutoffPC, varargin)
 %
 %     plotSpec -- logical; if true, plot the spectra and cumulative shared
 %                 variance explained. (default: false)
+%     rGroups  -- (1 x 2) int array; Indexes of the two groups whose cross-
+%                 covariance we wish to consider. (default: [1 2])
 %
 % Outputs:
 %
 %     d_shared -- structure with the following fields:
-%                 joint -- int; number of dimensions required
+%                 joint  -- int; number of dimensions required
 %                           to explain cutoffPC of the joint shared
 %                           variance across all groups
-%                 indiv -- (1 x numGroups) array; number of dimensions
-%                           required to explain cutoffPC of the
-%                           shared variance for each group individually.
+%                 indiv  -- (1 x numGroups) array; number of dimensions
+%                            required to explain cutoffPC of the
+%                            shared variance for each group individually.
+%                 across -- int; number of dimensions required to explain
+%                           cutoffPC of the across-group-covariance among
+%                           the two groups specified in rGroups.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -50,9 +57,11 @@ function d_shared = findSharedDimCutoff(params, cutoffPC, varargin)
 %                    defined, since within- and across-group dimensions
 %                    are, in general, correlated.
 %     28 Jun 2020 -- Fixed issue with reporting cutoff dimensionality.
+%     16 Aug 2020 -- Added d_shared.across functionality.
 
-plotSpec = false;
-extraOpts     = assignopts(who, varargin);
+plotSpec  = false;
+rGroups   = [1 2];
+extraOpts = assignopts(who, varargin);
 
 yDims = params.yDims;
 numGroups = length(yDims);
@@ -114,8 +123,9 @@ for groupIdx = 1:numGroups
     end
 end
 
-% Get the eigenvalue spectrum of the across-group loading matrix
-[~, D] = eig(C_joint*C_joint.');
+% Get the eigenvalue spectrum of the joint loading matrix
+CC = C_joint*C_joint';
+[~, D] = eig(CC);
 [spectrum,~] = sort(diag(D), 'descend');
 
 % Now find the smallest number of dimensions required to explain
@@ -124,13 +134,30 @@ shared_var.joint = spectrum ./ sum(spectrum);
 cumulative_var.joint = cumsum(spectrum) ./ sum(spectrum);
 [~, d_shared.joint] = max(cumulative_var.joint >= cutoffPC);
 
+% Take the appropriate block of the shared covariance matrix.
+obsBlock1 = obs_block_idxs{rGroups(1)};
+obsIdxs1 = obsBlock1(1):obsBlock1(2);
+obsBlock2 = obs_block_idxs{rGroups(2)};
+obsIdxs2 = obsBlock2(1):obsBlock2(2);
+crosscov = CC(obsIdxs1,obsIdxs2);
+
+% Get the singular values of the across-group covariance matrix
+s = svd(crosscov);
+[s,~] = sort(s, 'descend'); % Just ensure that the singular values are sorted
+
+% Now find the smallest number of dimensions required to explain
+% shared across-group-covariance within a certain cutoff
+shared_var.across = s ./ sum(s);
+cumulative_var.across = cumsum(s) ./ sum(s);
+[~, d_shared.across] = max(cumulative_var.across >= cutoffPC);
+
 if plotSpec
     colors = generateColors(); % Generate custom plotting colors
     
     % Plot the eigenspectra and cumulative shared variance explained
     figure;
     numCol = 2;
-    numRow = numGroups + 1;
+    numRow = numGroups + 2;
     
     % Jointly across groups
     subplot(numRow,numCol,1);
@@ -154,9 +181,31 @@ if plotSpec
     xlabel('No. dimensions, all groups');
     ylabel('Cumulative shared var. exp.');
     
+    % Exclusivley across-group covariance
+    subplot(numRow,numCol,3);
+    hold on;
+    plot(1:length(shared_var.across), shared_var.across, ...
+         'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+    xlabel('Dimension, across-group');
+    ylabel('Frac. shared cross-cov. exp.');
+    xlim([0 length(shared_var.across)+1]);
+    
+    subplot(numRow,numCol,4);
+    hold on;
+    plot(1:length(cumulative_var.across), cumulative_var.across, ...
+         'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
+    line([0 length(cumulative_var.across)+1], [cutoffPC cutoffPC], ...
+         'linestyle', '--', 'color', colors.reds{4}, 'linewidth', 1.5);
+    plot(d_shared.across, cumulative_var.across(d_shared.across), ...
+         'p', 'color', colors.reds{4}, 'markerfacecolor', ...
+         colors.reds{4}, 'markersize', 10);
+    xlim([0 length(cumulative_var.across)+1]);
+    xlabel('No. dimensions, across-group');
+    ylabel('Cumulative shared cross-cov. exp.');
+    
     % For each group individually
     for groupIdx = 1:numGroups
-        subplot(numRow,numCol,numCol*groupIdx+1);
+        subplot(numRow,numCol,numCol*groupIdx+3);
         hold on;
         plot(1:length(shared_var.indiv{groupIdx}), shared_var.indiv{groupIdx}, ...
              'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
@@ -164,7 +213,7 @@ if plotSpec
         ylabel('Frac. shared var. exp.');
         xlim([0 length(shared_var.indiv{groupIdx})+1]);
 
-        subplot(numRow,numCol,numCol*groupIdx+2);
+        subplot(numRow,numCol,numCol*groupIdx+4);
         hold on;
         plot(1:length(cumulative_var.indiv{groupIdx}), cumulative_var.indiv{groupIdx}, ...
              'o-', 'color', 'k', 'markerfacecolor', 'k', 'linewidth', 1.5);
