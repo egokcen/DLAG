@@ -52,7 +52,7 @@ function startParams = initialize_dlag(seqTrain,init_method,varargin)
 %                     (default: [1 2])
 %     initParams   -- Structure containing DLAG model parameters. Contains
 %                     same fields as 'startParams', documented below.
-%                     Only relevant if 'init_params' is 'params'.
+%                     Only relevant if 'init_method' is 'params'.
 %     parallelize  -- logical; Set to true to use Matlab's parfor construct
 %                     to parallelize each fold and latent dimensionality 
 %                     using multiple cores. (default: false)

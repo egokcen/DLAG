@@ -50,6 +50,28 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %                   (default: true)
 %     units      -- string; units of time of binWidth (for labels)
 %                   (default: '')
+%     prom -- Shade plotted latents according to prominence. prom 
+%             contains the following (relevant) fields:
+%             across.LL.raw -- (1 x numDimGroups) array; prominence of
+%                              dimGroups_across(i) evaluated on raw data, 
+%                              measured by decrease in log-likelihood 
+%                              relative to the full model.
+%             across.VE.raw -- (1 x numDimGroups) array;prominence of
+%                              dimGroups_across(i) evaluated on raw data, 
+%                              measured by normalized decrease in variance 
+%                              explained relative to the full model.
+%             within.LL.raw -- (1 x numGroups) cell array; prominence of 
+%                              dimGroups_within{i} evaluated on raw data, 
+%                              measured by decrease in log-likelihood 
+%                              relative to the full model.
+%             within.VE.raw -- (1 x numGroups) cell array; prominence of
+%                              dimGroups_within{i} evaluated on raw data, 
+%                              measured by normalized decrease in variance
+%                              explained relative to the full model.
+%             (default: [])
+%     metric -- string; relevant only if prom is specified. Specify which 
+%               prominence metric to use for shading ('LL' or 'VE') 
+%               (default: 'VE')
 %
 % Outputs:
 %     
@@ -70,13 +92,16 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %
 % Revision history:
 %     10 Apr 2020 -- Initial full revision.
-%     17 Apr 2020 -- Added 0-within-group dimension functionality
-%     28 Jun 2020 -- Added 0-across-group dimension functionality
+%     17 Apr 2020 -- Added 0-within-group dimension functionality.
+%     28 Jun 2020 -- Added 0-across-group dimension functionality.
+%     28 Sep 2020 -- Added option to shade latents according to prominence.
 
 % Set optional arguments
 plotAcross = true;
 plotWithin = true;
 units = '';
+prom = [];
+metric = 'VE';
 assignopts(who,varargin);
 
 xDim_across = params.xDim_across;
@@ -84,6 +109,7 @@ xDim_within = params.xDim_within;
 yDims = params.yDims;
 numGroups = length(yDims);
 colors = generateColors(); % Generate custom plotting colors
+pointsize = 25; % Size of scatterplot points
 
 % Convert GP params into units of time
 gp_params = getGPparams_dlag(params, binWidth);
@@ -130,9 +156,18 @@ if plotAcross && (xDim_across > 0)
          'Color', colors.grays{6}, ...
          'linestyle', '--', ...
          'linewidth', 1.5);
-    scatter(delays, gp_params.tau_across, ...
-             'MarkerFaceColor', colors.reds{3}, ...
-             'MarkerEdgeColor', colors.reds{3});
+    if isempty(prom)
+        scatter(delays, gp_params.tau_across, pointsize, ...
+                 'MarkerFaceColor', colors.grays{1}, ...
+                 'MarkerEdgeColor', colors.grays{1});
+    else
+        % Shade latents according to prominence.
+        c = prom.across.(metric).raw ./ max([prom.across.(metric).raw prom.within.(metric).raw{:}]);
+        scatter(delays, gp_params.tau_across, pointsize, c, 'filled', 'MarkerEdgeColor', colors.grays{1});
+        colormap(flipud(gray));
+        colorbar;
+        caxis([0 1]);
+    end
     hold off;
 end
 
@@ -146,8 +181,17 @@ if plotWithin
             hold on;
             xlim([0,xDim_within(groupIdx)+1]); 
             ylim([0,maxTau+10]);
-            h = bar([1:xDim_within(groupIdx)],gp_params.tau_within{groupIdx},0.4);    
-            set(h,'facecolor',colors.reds{3},'edgecolor','none');       
+            if isempty(prom)
+                h = bar([1:xDim_within(groupIdx)],gp_params.tau_within{groupIdx},0.4);    
+                set(h,'facecolor',colors.grays{1},'edgecolor',colors.grays{1});
+            else
+                for withinIdx = 1:xDim_within(groupIdx)
+                    h = bar(withinIdx,gp_params.tau_within{groupIdx}(withinIdx),0.4);
+                    set(h,'facecolor',colors.grays{1},'edgecolor',colors.grays{1});
+                    set(h,'facealpha', ...
+                        prom.within.(metric).raw{groupIdx}(withinIdx) / max([prom.across.(metric).raw prom.within.(metric).raw{:}])); 
+                end
+            end
             ylabel(sprintf('GP timescale%s', units));
             set(gca,'XTick',1:xDim_within(groupIdx));
             xlabel(sprintf('Within-group latents, group %d', groupIdx)); 

@@ -28,6 +28,8 @@ function idxs = extractWithinIndices(xDim_across,xDim_within,T,numGroups)
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.  
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     07 Jan 2021 -- Fixed error with indexing that only arose for
+%                    numGroups > 2.
 
     % Initialize output structures
     idxs = cell(1,numGroups);
@@ -43,14 +45,9 @@ function idxs = extractWithinIndices(xDim_across,xDim_within,T,numGroups)
             for i = 1:xDim_within(groupIdx1)
                 idxs{groupIdx1}{i} = [];
                 for t = 1:T
-                    bigBaseIdx = (xDim_across*numGroups + sum(xDim_within))*(t-1);                
+                    bigBaseIdx = (xDim_across*numGroups + sum(xDim_within))*(t-1) + 1;                
                     for groupIdx2 = 1:numGroups
-                        if groupIdx2 > 1
-                            bigIdx = bigIdx + (groupIdx2-1) * xDim_across + sum(xDim_within(1:groupIdx2-1));
-                        else
-                            bigIdx = bigBaseIdx + 1;
-                        end  
-
+                        bigIdx = bigBaseIdx + (groupIdx2-1) * xDim_across + sum(xDim_within(1:groupIdx2-1));
                         if groupIdx2 == groupIdx1
                             % Fill in within-group entries
                             idxs{groupIdx1}{i} = [idxs{groupIdx1}{i} bigIdx+xDim_across+i-1];

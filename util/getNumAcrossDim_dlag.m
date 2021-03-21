@@ -14,6 +14,11 @@ function bestModel = getNumAcrossDim_dlag(res,modelList,varargin)
 %              xDim_across -- int; across-group latent dimensionality
 %              xDim_within -- (1 x numGroups) array; within-group latent
 %                             dimensionalities for each group
+%              sumLL.joint -- float; cross-validated log-likelihood, 
+%                             evaluated on all groups jointly
+%              sumLL.indiv -- (1 x numGroups) array; cross-validated
+%                             log-likelihood, evaluated on each group 
+%                             individually
 %              R2_reg.joint -- float; average cross-validated R^2,
 %                              evaluated jointly across the pair in rGroups
 %              R2_reg.indiv -- (1 x 2) array; average cross-validated R^2 
@@ -52,10 +57,11 @@ function bestModel = getNumAcrossDim_dlag(res,modelList,varargin)
 %     Optional:
 %
 %     metric -- string; choose which cross-validated performance metric to
-%               use for selection ('MSE', 'R2') (default: 'R2')
-%     joint  -- logical; if true, select the optimal model according to a 
-%               joint metric. If false, choose the optimal model according
-%               to the minimum value among all individual metrics 
+%               use for selection ('LL', 'MSE', 'R2') (default: 'LL')
+%     joint  -- logical; Only relevant for 'MSE' and 'R2' metric options. 
+%               If true, select the optimal model according to a joint 
+%               metric. If false, choose the optimal model according to the
+%               minimum dimensionality among all individual metrics 
 %               (default: false)
 % 
 % Outputs:
@@ -66,13 +72,16 @@ function bestModel = getNumAcrossDim_dlag(res,modelList,varargin)
 %
 % Revision history:
 %     18 Aug 2020 -- Initial full revision.
+%     07 Sep 2020 -- Updated to include selection based on log-likelihood.
+%     21 Mar 2021 -- Changed default 'metric' to 'LL'
 
-metric = 'R2';
+metric = 'LL';
 joint = false;
 assignopts(who, varargin);
 
-numModels = length(modelList);
+numModels = size(modelList,1);
 numRGroups = 2; % Individual regression metrics are pairwise: one prediction in each direction
+numGroups = length(res(1).xDim_within); % Number of observation groups
 
 % Collect all dimensionalities contained in res
 xDims = [];
@@ -84,7 +93,17 @@ end
 keptModels = find(ismember(xDims, modelList, 'rows'));
 resKept = res(keptModels);
 
-if isequal(metric,'MSE')
+if isequal(metric,'LL')
+    
+    % Collect performance metrics across models
+    LL_joint = nan(numModels,1);
+    for modelIdx = 1:numModels
+        LL_joint(modelIdx) = resKept(modelIdx).sumLL.joint; 
+    end
+    [~, bestIdx] = max(LL_joint);
+    bestModel = resKept(bestIdx);
+
+elseif isequal(metric,'MSE')
     
     if joint
         % Collect performance metrics across models

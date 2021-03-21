@@ -209,7 +209,6 @@ for modelIdx = 1:numModels
             % For models trained on all data, extract the estimated
             % parameters.
             res(modelIdx).estParams = ws.estParams;
-            res(modelIdx).rGroups = ws.rGroups;
         else
             % For models trained on CV folds, get performance metrics
             
@@ -241,6 +240,7 @@ for modelIdx = 1:numModels
         end
     end 
     % Compute averages and SEMs
+    res(modelIdx).rGroups = ws.rGroups;
 
     % Log-likelihood, joint and individual
     res(modelIdx).sumLL.joint = sum(cvLL.joint);

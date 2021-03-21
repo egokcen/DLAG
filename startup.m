@@ -2,7 +2,11 @@ addpath core_dlag
 addpath core_pcca
 addpath core_fa
 addpath plotting
-addpath post-selection_inference
+addpath inferential_statistics
+addpath descriptive_statistics
+addpath variable_transformations
+addpath variable_transformations/dlag
+addpath variable_transformations/pcca
 addpath simulation
 addpath simulation/dlag
 addpath simulation/pcca

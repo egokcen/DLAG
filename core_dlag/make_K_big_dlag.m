@@ -48,6 +48,8 @@ function [K_big] = make_K_big_dlag(params,T)
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     07 Jan 2021 -- Fixed error with indexing into K_big that only arose
+%                    for numGroups > 2.
 
 % Initialize relevant variables
 xDim_across  = params.xDim_across;
@@ -82,29 +84,21 @@ end
 
 % Fill in K_big with across- and within-group components
 for t1 = 1:T
-    bigBaseIdx1 = (xDim_across*numGroups + sum(xDim_within))*(t1-1);
-    acrossBaseIdx1 = (xDim_across*numGroups)*(t1-1);
+    % Time blocks
+    bigBaseIdx1 = (xDim_across*numGroups + sum(xDim_within))*(t1-1) + 1;
+    acrossBaseIdx1 = (xDim_across*numGroups)*(t1-1) + 1;
     for t2 = 1:T
         % Time blocks
-        bigBaseIdx2 = (xDim_across*numGroups + sum(xDim_within))*(t2-1);
-        acrossBaseIdx2 = (xDim_across*numGroups)*(t2-1);
+        bigBaseIdx2 = (xDim_across*numGroups + sum(xDim_within))*(t2-1) + 1;
+        acrossBaseIdx2 = (xDim_across*numGroups)*(t2-1) + 1;
         for i1 = 1:numGroups
-            if i1 > 1
-                acrossIdx1 = acrossIdx1 + (i1-1) * xDim_across;
-                bigIdx1 = bigIdx1 + (i1-1) * xDim_across + sum(xDim_within(1:i1-1));
-            else
-                acrossIdx1 = acrossBaseIdx1 + 1;
-                bigIdx1 = bigBaseIdx1 + 1;
-            end  
+            % Group blocks
+            acrossIdx1 = acrossBaseIdx1 + (i1-1) * xDim_across;
+            bigIdx1 = bigBaseIdx1 + (i1-1) * xDim_across + sum(xDim_within(1:i1-1));
             for i2 = 1:numGroups
                 % Group blocks
-                if i2 > 1
-                    acrossIdx2 = acrossIdx2 + (i2-1) * xDim_across;
-                    bigIdx2 = bigIdx2 + (i2-1) * xDim_across + sum(xDim_within(1:i2-1));
-                else
-                    acrossIdx2 = acrossBaseIdx2 + 1;
-                    bigIdx2 = bigBaseIdx2 + 1;
-                end 
+                acrossIdx2 = acrossBaseIdx2 + (i2-1) * xDim_across;
+                bigIdx2 = bigBaseIdx2 + (i2-1) * xDim_across + sum(xDim_within(1:i2-1));
                 % Fill in across-group entries
                 K_big(bigIdx1:bigIdx1+xDim_across-1, bigIdx2:bigIdx2+xDim_across-1) ...
                     = K_big_across(acrossIdx1:acrossIdx1+xDim_across-1,acrossIdx2:acrossIdx2+xDim_across-1);

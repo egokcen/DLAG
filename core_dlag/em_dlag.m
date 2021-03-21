@@ -71,6 +71,10 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %     learnObs  -- logical; If set to false, then observation parameters
 %                  will remain fixed at their initial value throughout 
 %                  training. (default: true)
+%     trackedParams -- structure containing the tracked parameters from a
+%                      previous fitting attempt, with the intention of 
+%                      starting where that attempt left off. See LL,
+%                      iterTime, D, gams_across, and gams_within below.
 %
 % Outputs:
 %
@@ -123,34 +127,30 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %     26 May 2020 -- Changed default on tolParam from 1e-4 to -Inf (i.e.,
 %                    the default is to not check this criterion).
 %     27 Jun 2020 -- Added 0-across-group dimension functionality
+%     18 Mar 2021 -- Cleaned up a depricated optional arg to learnGPparams.
            
 % Optional arguments
-maxIters     = 1e6;
-tolLL        = 1e-8;
-tolParam     = -Inf;
-freqLL       = 10;
-freqParam    = 100;
-verbose      = true;
-maxDelayFrac = 0.5;
-minVarFrac   = 0.01;
-parallelize  = false;
-learnDelays  = true;
-learnObs     = true;
-extra_opts   = assignopts(who,varargin);
+maxIters      = 1e6;
+tolLL         = 1e-8;
+tolParam      = -Inf;
+freqLL        = 10;
+freqParam     = 100;
+verbose       = true;
+maxDelayFrac  = 0.5;
+minVarFrac    = 0.01;
+parallelize   = false;
+learnDelays   = true;
+learnObs      = true;
+trackedParams = {};
+extra_opts    = assignopts(who,varargin);
 
 % Initialize other variables
-yDims        = currentParams.yDims;
-yDim         = sum(yDims);
-xDim_across  = currentParams.xDim_across;
-xDim_within  = currentParams.xDim_within;
-numGroups    = length(yDims);
-LL           = [];   % Log-likelihood at each iteration
-LLi          = -inf; % Initial log-likelihood
-iterTime     = [];   % Time it takes to complete each iteration
-deltaD_i     = inf;  % Initial change in delays between iterations
-deltaGam_across_i = inf; % Initial change in across-group timescales 
-                         % between iterations
-
+yDims         = currentParams.yDims;
+yDim          = sum(yDims);
+xDim_across   = currentParams.xDim_across;
+xDim_within   = currentParams.xDim_within;
+numGroups     = length(yDims);
+                         
 % Make sure groups are valid
 assert(yDim == sum(yDims));
 assert(length(yDims) == length(xDim_within));
@@ -166,18 +166,42 @@ maxDelay = currentParams.maxDelay;
 currentParams.DelayMatrix(currentParams.DelayMatrix >= maxDelay) = rand;
 currentParams.DelayMatrix(currentParams.DelayMatrix <= -maxDelay) = rand;
 
-% Track estimated delays and timescales from iteration to iteration
-D = {currentParams.DelayMatrix};
-gams_across = {currentParams.gamma_across};
-for groupIdx = 1:numGroups
-    gams_within{groupIdx} = {currentParams.gamma_within{groupIdx}};
+if isempty(trackedParams)
+    % Start convergence tracking fresh
+    LL = [];                 % Log-likelihood at each iteration
+    LLi = -inf;              % Initial log-likelihood
+    iterTime = [];           % Time it takes to complete each iteration
+    deltaD_i = inf;          % Initial change in delays between iterations
+    deltaGam_across_i = inf; % Initial change in across-group timescales 
+                             % between iterations
+    D = {currentParams.DelayMatrix}; % Estimated delays each iteration
+    % Within- and across-group timescales each iteration
+    gams_across = {currentParams.gamma_across};
+    for groupIdx = 1:numGroups
+        gams_within{groupIdx} = {currentParams.gamma_within{groupIdx}};
+    end
+    startIter = 1; % Initial value for EM loop index
+else
+    % Start convergence tracking based on where a previous attempt left
+    % off.
+    LL            = trackedParams.LL;          % Log-likelihood at each iteration
+    LLi           = trackedParams.LL(end);     % Most recent log-likelihood
+    LLbase        = trackedParams.LL(2);       % Base log-likelihood
+    iterTime      = trackedParams.iterTime;    % Time it takes to complete each iteration
+    D             = trackedParams.D;           % Estimated delays each iteration
+    gams_across   = trackedParams.gams_across; % Estimated across-group timescales each iteration
+    gams_within   = trackedParams.gams_within; % Estimated within-group timescales each iteration
+    deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
+    deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
+    startIter = length(LL) + 1; % Initial value for EM loop index
 end
+
 
 % Track error if data likelihood decreases
 err_status = 0;
 
 % Begin EM iterations
-for i =  1:maxIters
+for i =  startIter:maxIters
     
     if verbose && ~parallelize
         fprintf('EM iteration %3d of %d ', i, maxIters);
@@ -225,8 +249,7 @@ for i =  1:maxIters
             tempParams.eps = currentParams.eps_across;
             % learnGPparams_pluDelays performs gradient descent to learn kernel
             % parameters WITH delays
-            res = learnGPparams_plusDelays(seqAcross, tempParams, ...
-                                           'algorithm','em',extra_opts{:});
+            res = learnGPparams_plusDelays(seqAcross, tempParams, extra_opts{:});
             switch currentParams.covType
                 case 'rbf'
                     currentParams.gamma_across = res.gamma; 
@@ -265,8 +288,7 @@ for i =  1:maxIters
                 % learnGPparams performs gradient descent to learn kernel
                 % parameters WITHOUT delays. 
                 % Reused from GPFA
-                res = learnGPparams(seqWithin{groupIdx}, tempParams,...
-                                    'algorithm','em',extra_opts{:});
+                res = learnGPparams(seqWithin{groupIdx}, tempParams, extra_opts{:});
                 switch currentParams.covType
                     case 'rbf'
                         currentParams.gamma_within{groupIdx} = res.gamma;  

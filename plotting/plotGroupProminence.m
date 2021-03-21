@@ -3,7 +3,7 @@ function plotGroupProminence(prom, varargin)
 % plotGroupProminence(prom,...)
 %
 % Description: Plot the bootstrapped "prominence" of each group of latents
-%              in among each group of observations in prom.
+%              among each group of observations in prom.
 %
 % Arguments:
 %
@@ -28,6 +28,8 @@ function plotGroupProminence(prom, varargin)
 %
 % Revision history:
 %     16 May 2020 -- Initial full revision.
+%     12 Jan 2021 -- Fixed issue with indexing that only arose for
+%                    numGroups > 2.
 
 metric    = 'LL';
 extraOpts = assignopts(who, varargin);
@@ -52,7 +54,7 @@ for groupIdx = 1:numGroups
     vlim = ([lower-0.1*range upper+0.1*range]);
 
     % Across-group prominences
-    subplot(numGroups,2,(groupIdx-1)*numGroups+1);
+    subplot(numGroups,2,(groupIdx-1)*2+1);
     hold on;
 
     % Format subplot
@@ -84,7 +86,7 @@ for groupIdx = 1:numGroups
     hold off;
 
     % Within-group prominences
-    subplot(numGroups,2,(groupIdx-1)*numGroups+2);
+    subplot(numGroups,2,(groupIdx-1)*2+2);
     hold on;
 
     % Format subplot

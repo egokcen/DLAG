@@ -24,7 +24,7 @@
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Last Revised:
-%     16 Aug 2020
+%     20 Mar 2021
 
 %% ==================
 % 0a) Load demo data
@@ -51,14 +51,14 @@ numWorkers = 2;      % Adjust this to your computer's specs
 
 % Let's explicitly define all of the optional arguments, for
 % the sake of demonstration:
-runIdx = 4;           % Results will be saved in baseDir/mat_results/runXXX/, where
+runIdx = 5;           % Results will be saved in baseDir/mat_results/runXXX/, where
                       % XXX is runIdx. Use a new runIdx for each dataset.
 baseDir = '.';        % Base directory where results will be saved
 overwriteExisting = true; % Control whether existing results files are overwritten
 saveData = false;     % Set to true to save train and test data (not recommended)
 binWidth = 20;        % Sample period / spike count bin width, in units of time (e.g., ms)
 numFolds = 0;         % Number of cross-validation folds (0 means no cross-validation)
-xDims = {4, 4};       % The number of latents for each group
+xDims = {6, 6};       % The number of latents for each group
 yDims = [10 10];      % Number of observed features (neurons) in each group (area)
 maxIters = 1e8;       % Limit the number of EM iterations (not recommended, in general)
 randomSeed = 0;       % Seed the random number generator, for reproducibility
@@ -85,31 +85,31 @@ Ytest_static = seq2pcca(Ytest, yDims, 'datafield', 'y'); % Borrowing code from p
 
 for groupIdx = 1:numGroups
     % Retrieve the fitted model of interest
-    res = getModel_fa(runIdx, groupIdx, xDim, 'baseDir', baseDir);
+    res = getModel_fa(runIdx, groupIdx, xDims{groupIdx}, 'baseDir', baseDir);
 
     % Infer unordered latents
     [Xinferred, ~] = fa_estep(Ytest_static{groupIdx}, res.estParams);
     % Convert inferred latents back into seq format
     Ytest = segmentByTrial(Ytest, Xinferred.mean, 'xsm');
     % Plot unordered latents vs time
-    plotEachDimVsTime(Ytest, 'xsm', res.binWidth, ...
-                      'nPlotMax', 1, ...
-                      'nCol', res.xDim, ...
-                      'plotSingle', true, ...
-                      'plotMean', true, ...
-                      'units', 'ms');
+    plotDimsVsTime(Ytest, 'xsm', res.binWidth, ...
+                   'nPlotMax', 1, ...
+                   'nCol', res.xDim, ...
+                   'plotSingle', true, ...
+                   'plotMean', true, ...
+                   'units', 'ms');
                   
     % Orthonormalize and order latents according to shared variance
     % explained.
     xspec = sprintf('xorth%02d', res.xDim);
     [Xorth, Corth] = orthogonalize(Xinferred.mean, res.estParams.C);
     Ytest = segmentByTrial(Ytest, Xorth, xspec);
-    plotEachDimVsTime(Ytest, xspec, res.binWidth, ...
-                      'nPlotMax', 20, ...
-                      'nCol', res.xDim, ...
-                      'plotSingle', true, ...
-                      'plotMean', true, ...
-                      'units', 'ms');
+    plotDimsVsTime(Ytest, xspec, res.binWidth, ...
+                   'nPlotMax', 20, ...
+                   'nCol', res.xDim, ...
+                   'plotSingle', true, ...
+                   'plotMean', true, ...
+                   'units', 'ms');
 
     % Visualize the top three orthonormalized latents in 3D space
     plotTraj(Ytest, xspec, ...
@@ -124,7 +124,7 @@ end
 %  =============================
 
 % Change other input arguments as appropriate
-runIdx = 5;
+runIdx = 6;
 numFolds = 4;
 xDims = {0:yDims(1)-1, 0:yDims(2)-1}; % Sweep over these dimensionalities
 

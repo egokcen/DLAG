@@ -77,6 +77,29 @@ function plotBootstrapGPparams_dlag(params,bootParams,binWidth,rGroups,varargin)
 %     overlayParams -- logical; set to true to overlay the original
 %                      parameter point estimates over the bootstrap 
 %                      confidence intervals (default: false)
+%     prom -- Relevant only if overlayParams is true. Shade plotted latents
+%             according to prominence. prom contains the following 
+%             (relevant) fields:
+%             across.LL.raw -- (1 x numDimGroups) array; prominence of
+%                              dimGroups_across(i) evaluated on raw data, 
+%                              measured by decrease in log-likelihood 
+%                              relative to the full model.
+%             across.VE.raw -- (1 x numDimGroups) array;prominence of
+%                              dimGroups_across(i) evaluated on raw data, 
+%                              measured by normalized decrease in variance 
+%                              explained relative to the full model.
+%             within.LL.raw -- (1 x numGroups) cell array; prominence of 
+%                              dimGroups_within{i} evaluated on raw data, 
+%                              measured by decrease in log-likelihood 
+%                              relative to the full model.
+%             within.VE.raw -- (1 x numGroups) cell array; prominence of
+%                              dimGroups_within{i} evaluated on raw data, 
+%                              measured by normalized decrease in variance
+%                              explained relative to the full model.
+%             (default: [])
+%     metric -- string; relevant only if prom is specified. Specify which 
+%               prominence metric to use for shading ('LL' or 'VE') 
+%               (default: 'VE')
 %
 % Outputs:
 %     
@@ -89,12 +112,15 @@ function plotBootstrapGPparams_dlag(params,bootParams,binWidth,rGroups,varargin)
 %     17 May 2020 -- Initial full revision.
 %     20 Jun 2020 -- Plotting of point estimates is now optional.
 %     28 Jun 2020 -- Updated for compatibility with 0-dimension models.
+%     28 Sep 2020 -- Added option to shade latents according to prominence.
 
 % Set optional arguments
 plotAcross = true;
 plotWithin = true;
 units = '';
 overlayParams = false;
+prom = [];
+metric = 'VE';
 assignopts(who,varargin);
 
 xDim_across = params.xDim_across;
@@ -102,6 +128,7 @@ xDim_within = params.xDim_within;
 yDims = params.yDims;
 numGroups = length(yDims);
 colors = generateColors(); % Generate custom plotting colors
+pointsize = 25; % Size of scatterplot points
 
 % Convert GP params into units of time
 gp_params = getGPparams_dlag(params, binWidth);
@@ -171,9 +198,18 @@ if plotAcross && xDim_across > 0
              'linestyle', 'none', ...
              'linewidth', 1.5);
     if overlayParams
-        scatter(delays, gp_params.tau_across, 20, ...
-                'markerfacecolor', colors.reds{3}, ...
-                'markeredgecolor', colors.reds{3});
+        if isempty(prom)
+            scatter(delays, gp_params.tau_across, pointsize, ...
+                     'MarkerFaceColor', colors.grays{1}, ...
+                     'MarkerEdgeColor', colors.grays{1});
+        else
+            % Shade latents according to prominence.
+            c = prom.across.(metric).raw ./ max([prom.across.(metric).raw prom.within.(metric).raw{:}]);
+            scatter(delays, gp_params.tau_across, pointsize, c, 'filled', 'MarkerEdgeColor', colors.grays{1});
+            colormap(flipud(gray));
+            colorbar;
+            caxis([0 1]);
+        end
     end
     hold off;
 end
@@ -200,9 +236,18 @@ if plotWithin
             set(gca,'XTick',1:xDim_within(groupIdx));
             xlabel(sprintf('Within-group latents, group %d', groupIdx));
             if overlayParams
-                scatter(1:xDim_within(groupIdx), gp_params.tau_within{groupIdx}, 20, ...
-                    'markerfacecolor', colors.reds{3}, ...
-                    'markeredgecolor', colors.reds{3});
+                if isempty(prom)
+                    scatter(1:xDim_within(groupIdx), gp_params.tau_within{groupIdx}, 20, ...
+                        'markerfacecolor', colors.grays{1}, ...
+                        'markeredgecolor', colors.grays{1});
+                else
+                    % Shade latents according to prominence.
+                    c = prom.within.(metric).raw{groupIdx} ./ max([prom.across.(metric).raw prom.within.(metric).raw{:}]);
+                    scatter(1:xDim_within(groupIdx), gp_params.tau_within{groupIdx}, pointsize, c, 'filled', 'MarkerEdgeColor', colors.grays{1});
+                    colormap(flipud(gray));
+                    colorbar;
+                    caxis([0 1]);
+                end
             end
             hold off;
         end 

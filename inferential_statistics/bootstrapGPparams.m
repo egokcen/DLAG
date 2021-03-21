@@ -63,6 +63,8 @@ function bootParams = bootstrapGPparams(seq, params, binWidth, numBootstrap, var
 %                         Note: The default here is larger than in 
 %                         em_dlag.m, since it's assumed that an 
 %                         already-fitted model is used for initialization.
+%     maxIters         -- int; number of EM iterations to run 
+%                         (default: 1e4)
 %
 % Outputs:
 %
@@ -97,12 +99,16 @@ function bootParams = bootstrapGPparams(seq, params, binWidth, numBootstrap, var
 %     23 May 2020 -- Added parallel options.
 %     26 May 2020 -- Added options for cut trials and EM convergence
 %                    tolerance.
+%     22 Sep 2020 -- Fixed issue with DelayMatrix shape for models with one
+%                    across-group dimension.
+%     20 Mar 2021 -- Added 'maxIters' option.
 
 alpha       = 0.05;
 parallelize = false;
 numWorkers  = 4;
 segLength   = Inf;
 tolLL       = 1e-4;
+maxIters    = 1e4;
 extraOpts   = assignopts(who, varargin);
 
 % Constants
@@ -148,6 +154,7 @@ if parallelize
                 bootIdx, numBootstrap);
         seqBoot = seqCut(bootSamples{bootIdx});
         [newParams{bootIdx}, ~, ~, ~, ~, ~, ~, ~, ~] = em_dlag(params, seqBoot, ...
+                                                               'maxIters', maxIters, ...
                                                                'tolLL', tolLL, ...
                                                                'learnObs', learnObs, ...
                                                                'verbose', verbose);
@@ -172,6 +179,7 @@ else
         seqBoot = seqCut(bootSamples);
 
         [newParams, ~, ~, ~, ~, ~, ~, ~, ~] = em_dlag(params, seqBoot, ...
+                                                      'maxIters', maxIters, ...
                                                       'tolLL', tolLL, ...
                                                       'learnObs', learnObs, ...
                                                       'verbose', verbose);
@@ -205,3 +213,9 @@ end
 ci = prctile(DelayMatrix, 100.*[alpha/2 1-alpha/2], 1);
 bootParams.DelayMatrix.lower = squeeze(ci(1,:,:));
 bootParams.DelayMatrix.upper = squeeze(ci(2,:,:));
+% 'squeeze' incorrectly shapes DelayMatrix into a row vector for 1D models
+if xDim_across == 1 
+    bootParams.DelayMatrix.upper = reshape(bootParams.DelayMatrix.upper,numGroups,[]);
+    bootParams.DelayMatrix.lower = reshape(bootParams.DelayMatrix.lower,numGroups,[]);
+end
+

@@ -51,6 +51,9 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                    (e.g., ms) (default: 20)
 %     numFolds    -- int; number of cross-validation folds (default: 0).
 %                    0 indicates no cross-validation, i.e. train on all trials.
+%     fitAll      -- logical; set to false to avoid fitting a model to all
+%                    train data (only relevant if numFolds > 0) 
+%                    (default: true)
 %     yDims       -- (1 x numGroups) array; Specify the number of features 
 %                    (neurons) in each group (area). Elements in yDims
 %                    should match the format of dat.
@@ -228,12 +231,14 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                    cross-validation metrics.
 %     20 Jun 2020 -- Added xDims_grid option.
 %     28 Jun 2020 -- Updated to handle the all-zero-dimension case.
+%     12 Mar 2021 -- Added 'fitAll' optional argument
 
 % Specify defaults for optional arguments
 baseDir              = '.';
 method               = 'dlag';
 binWidth             = 20;
 numFolds             = 0;
+fitAll               = true;
 yDims                = [];
 xDims_across         = [3];
 xDims_within         = {[1]};
@@ -266,8 +271,11 @@ if sum(yDims) ~= size(dat(1).y,1)
 end
 
 N    = length(dat);      % Number of trials
-cvf_list = 0:numFolds;   % Cross-validation folds, including training on all data
-
+if numFolds > 0 && ~fitAll
+    cvf_list = 1:numFolds;   % Cross-validation folds, not including training on all data
+else
+    cvf_list = 0:numFolds;   % Cross-validation folds, including training on all data
+end
 % Seed the random number generator, for reproducibility
 if ~isempty(randomSeed)
     rng(randomSeed);

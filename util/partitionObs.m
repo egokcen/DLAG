@@ -35,7 +35,7 @@ function groupSeq = partitionObs(seq, dims, varargin)
 %
 % Revision history:
 %     16 May 2020 -- Initial full revision.
-%     16 Aug 2020 -- FIlled in gaps in documentation.
+%     16 Aug 2020 -- Filled in gaps in documentation.
 
 datafield = 'y';
 extraOpts = assignopts(who, varargin);

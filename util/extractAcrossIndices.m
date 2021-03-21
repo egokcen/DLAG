@@ -24,22 +24,18 @@ function idxs = extractAcrossIndices(xDim_across,xDim_within,T,numGroups)
 %
 % Revision history:
 %     18 Mar 2020 -- Initial full revision.  
+%     07 Jan 2021 -- Fixed error with indexing that only arose for
+%                    numGroups > 2.
 
     idxs = cell(1,xDim_across);
     for i = 1:xDim_across
         idxs{i} = [];
         for t = 1:T
-            bigBaseIdx = (xDim_across*numGroups + sum(xDim_within))*(t-1);                
+            bigBaseIdx = (xDim_across*numGroups + sum(xDim_within))*(t-1) + 1;                
             for groupIdx = 1:numGroups
-                if groupIdx > 1
-                    bigIdx = bigIdx + (groupIdx-1) * xDim_across + sum(xDim_within(1:groupIdx-1));
-                else
-                    bigIdx = bigBaseIdx + 1;
-                end  
-                
+                bigIdx = bigBaseIdx + (groupIdx-1) * xDim_across + sum(xDim_within(1:groupIdx-1));
                 % Fill in across-group entries
-                idxs{i} = [idxs{i} bigIdx+i-1];
-                
+                idxs{i} = [idxs{i} bigIdx+i-1];   
             end
         end
     end
