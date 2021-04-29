@@ -30,6 +30,7 @@ function plotDimsVsTime(seq, xspec, binWidth, varargin)
 %                  into latent space (default: [])
 %     units     -- string; units of time of binWidth (for labels)
 %                  (default: '')
+%     redTrials -- int array; list of trials to highlight red (default: [])
 % 
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -42,6 +43,8 @@ function plotDimsVsTime(seq, xspec, binWidth, varargin)
 %                    group only were plotted for all groups.
 %     18 Mar 2021 -- Removed 'dlagFormat'. Updated some plotting 
 %                    conventions.
+%     10 Apr 2021 -- Added redTrials optional argument.
+%     12 Apr 2021 -- Modified position of figure (issues on some OS's)
 
 nPlotMax   = 20;
 nCols      = 4;
@@ -50,6 +53,7 @@ plotMean   = true;
 plotZero   = false;
 Zero       = [];
 units      = '';
+redTrials  = [];
 assignopts(who, varargin);
 
 colors = generateColors(); % Get custom colors for plotting
@@ -74,7 +78,7 @@ nRows   = ceil(size(Xall, 1) / nCols);
 f = figure;
 % Set final figure size
 set(f, 'Units', 'Normalized', ...
-    'OuterPosition', [1 1 min([1 0.2*nCols]) min([1 0.25*nRows])]);
+    'OuterPosition', [0.05 0.05 min([1 0.2*nCols]) min([1 0.25*nRows])]);
 xMax = ceil(10*max(abs(Xall(:)))) / 10;
 xMid = ceil(10*(xMax/2)) / 10;
 
@@ -89,6 +93,8 @@ ytk     = [-xMax -xMid 0 xMid xMax];
 if ~isempty(units)
     units = sprintf(' (%s)', units); 
 end
+
+fontsize = 12; % Size of text label fonts
 
 for k = 1:size(Xall,1)
     subplot(nRows, nCols, k);
@@ -108,9 +114,16 @@ for k = 1:size(Xall,1)
         if plotSingle 
             % Plot single-trial trajectories
             T = seq(n).T;
+            if ismember(n, redTrials)
+                % Highlight trial with red
+                col = colors.reds{5};
+            else
+                % Color trial black, as usual
+                col = colors.grays{5};
+            end
             plot(1:T, dat(k,:), ...
                  'linewidth', 0.05, ...
-                 'color', colors.grays{5});
+                 'color', col);
         end
         xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
     end
@@ -129,7 +142,7 @@ for k = 1:size(Xall,1)
     set(h, 'xtick', xtk, 'xticklabel', xtkl);
     set(h, 'ytick', ytk, 'yticklabel', ytk);
     str = sprintf('$${\\mathbf x}_{%d,:}$$',k);
-    title(str, 'interpreter', 'latex', 'fontsize', 16);
+    title(str, 'interpreter', 'latex', 'fontsize', fontsize);
     xlabel(sprintf('Time%s',units));
 end
     

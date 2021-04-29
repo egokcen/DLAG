@@ -70,6 +70,7 @@ function seq = dominantProjection_dlag(seq, params, varargin)
 %                    within- or across-group dimensions.
 %     17 Mar 2021 -- Renamed 'dominantProjection_dlag'. Overhauled to 
 %                    mirror correlativeProjection_dlag.m
+%     12 Apr 2021 -- Patched an issue when xDim_across, xDim_within = 0
 
 includeAcross = true;
 includeWithin = true;
@@ -104,12 +105,18 @@ for groupIdx = 1:numGroups
     % Collect the desired latent types
     X = [];
     if includeAcross
-        Xacross = [x_across.xsm];
+        Xacross = [];
+        if xDim_across > 0
+            Xacross = [x_across.xsm];
+        end
         X = [X; Xacross];
     end
     if includeWithin
        x_within = x_within{1};
-       Xwithin = [x_within.xsm];
+       Xwithin = [];
+       if xDim_within(groupIdx) > 0
+           Xwithin = [x_within.xsm];
+       end
        X = [X; Xwithin];
     end
     

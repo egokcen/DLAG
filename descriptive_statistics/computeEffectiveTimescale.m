@@ -31,6 +31,8 @@ function tau_eff = computeEffectiveTimescale(ccmap, binWidth, varargin)
 %
 % Revision history:
 %     18 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim = 0 case.
+%                    Improved plot formatting along vertical axis.
 
 showPlot = false;
 units = [];
@@ -38,6 +40,11 @@ assignopts(who,varargin);
 
 % Constants
 xDim = length(ccmap);
+if xDim <= 0
+   fprintf('computeEffectiveTimescale: xDim = 0. Returning empty structure tau_eff\n');
+   tau_eff = {};
+   return;
+end
 T = size(ccmap{1},1); % Length of sequence (trial)
 
 tau_eff = cell(1,xDim);
@@ -64,6 +71,9 @@ for j = 1:xDim
 end
 
 if showPlot
+    % Determine vertical axis limits
+    tau_all = [tau_eff{:}];
+    ymax = 1.05*max(tau_all(:));
     figure;
     for j = 1:xDim
         subplot(1,xDim,j);
@@ -71,6 +81,6 @@ if showPlot
         plot((1:T).*binWidth, tau_eff{j}(1:T),'k-');
         xlabel(sprintf('Time%s', [' (' units ')']));
         ylabel(sprintf('Effective GP Timescale%s', [' (' units ')']));
-        ylim([0 max(tau_eff{j})]);
+        ylim([0 1.05*ymax]);
     end
 end

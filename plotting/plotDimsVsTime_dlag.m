@@ -36,17 +36,22 @@ function plotDimsVsTime_dlag(seq, xspec, params, binWidth, varargin)
 %                   being plotted. (default: true)
 %     units     -- string; units of time of binWidth (for labels)
 %                  (default: '')
+%     redTrials -- int array; list of trials to highlight red (default: [])
 % 
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     19 Mar 2021 -- Initial full revision.
+%     10 Apr 2021 -- Added redTrials optional argument.
+%     11 Apr 2021 -- Fixed issue with plot gap when xDim_across == 0.
+%     12 Apr 2021 -- Modified position of figure (issues on some OS's)
 
 nPlotMax   = 20;
 plotSingle = true;
 plotMean   = true;
 units      = '';
+redTrials  = [];
 assignopts(who, varargin);
 
 colors = generateColors(); % Get custom colors for plotting
@@ -84,7 +89,7 @@ end
 
 % Size and axis scales
 set(f, 'Units', 'Normalized', ...
-    'OuterPosition', [1 1 min([1 0.2*nCols]) min([1 0.25*nRows])]);
+    'OuterPosition', [0.05 0.05 min([1 0.2*nCols]) min([1 0.25*nRows])]);
 Tmax    = max([seq.T]);  
 Tmin    = min([seq.T]);
 xtkStep = ceil(Tmax/25)*5;
@@ -95,6 +100,8 @@ xtkl    = 0:(xtkStep*binWidth):(Tmax-1)*binWidth;
 if ~isempty(units)
     units = sprintf(' (%s)', units); 
 end
+
+fontsize = 12; % Size of text label fonts
 
 for groupIdx = 1:numGroups
 
@@ -128,9 +135,16 @@ for groupIdx = 1:numGroups
             if plotSingle 
                 % Plot single-trial trajectories
                 T = seqAcross(n).T;
+                if ismember(n, redTrials)
+                    % Highlight trial with red
+                    col = colors.reds{5};
+                else
+                    % Color trial black, as usual
+                    col = colors.grays{5};
+                end
                 plot(1:T, dat(k,:), ...
                      'linewidth', 0.05, ...
-                     'color', colors.grays{5});
+                     'color', col);
             end
             xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
         end
@@ -148,13 +162,15 @@ for groupIdx = 1:numGroups
         str = sprintf('$${\\mathbf x}^{(%d,%d)}_{a,:}$$',groupIdx,k);
         str = sprintf('%s, $$D_{%d%d} = %3.1f$$', str, groupIdx, k, DelayMatrix(k));
         str = sprintf('%s%s', str, units);
-        title(str, 'interpreter', 'latex', 'fontsize', 16);
+        title(str, 'interpreter', 'latex', 'fontsize', fontsize);
         xlabel(sprintf('Time%s', units));
     end
     
     % Leave a one-panel gap between across- and within-group latents
-    plotIdx = plotIdx+1;
-
+    if xDim_across > 0
+        plotIdx = plotIdx+1;
+    end
+    
     % Within-group latents
     for k = 1:xDim_within(groupIdx)
         plotIdx = plotIdx + 1;
@@ -168,9 +184,16 @@ for groupIdx = 1:numGroups
             if plotSingle 
                 % Plot single-trial trajectories
                 T = seqWithin{1}(n).T;
+                if ismember(n, redTrials)
+                    % Highlight trial with red
+                    col = colors.reds{5};
+                else
+                    % Color trial black, as usual
+                    col = colors.grays{5};
+                end
                 plot(1:T, dat(k,:), ...
                      'linewidth', 0.05, ...
-                     'color', colors.grays{5});
+                     'color', col);
             end
             xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
         end
@@ -186,7 +209,7 @@ for groupIdx = 1:numGroups
         set(h, 'xtick', xtk, 'xticklabel', xtkl);
         set(h, 'ytick', ytk, 'yticklabel', ytk);
         str = sprintf('$${\\mathbf x}^{(%d,%d)}_{w,:}$$',groupIdx,k);
-        title(str, 'interpreter', 'latex', 'fontsize', 16);
+        title(str, 'interpreter', 'latex', 'fontsize', fontsize);
         xlabel(sprintf('Time%s', units));
     end
 

@@ -47,14 +47,17 @@ function [ccmap, ccmat] = crossCorrMap(seq, params, varargin)
 %
 %     Optional:
 %
-%     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order matters: groupIdxs(1) gives the source
-%                  group; groupIdxs(2) gives the target group.
-%                  (default: [1 2])
-%     corrProj  -- logical; set to true to compute cross-correlation maps
-%                  through correlative modes. (default: false)
-%     orth      -- logical; If corrProj is true, set to true to use
-%                  orthonormal correlative modes. (default: false)
+%     groupIdxs  -- (1 x 2) int array; Specify which pair of groups to
+%                   analyze. Order matters: groupIdxs(1) gives the source
+%                   group; groupIdxs(2) gives the target group.
+%                   (default: [1 2])
+%     corrProj   -- logical; set to true to compute cross-correlation maps
+%                   through correlative modes. (default: false)
+%     orth       -- logical; If corrProj is true, set to true to use
+%                   orthonormal correlative modes. (default: false)
+%     computeCov -- logical; set to true to compute an unnormalized 
+%                   cross-covariance, instead of cross-correlation
+%                   (default: false)
 %
 % Outputs:
 %
@@ -70,10 +73,14 @@ function [ccmap, ccmat] = crossCorrMap(seq, params, varargin)
 %
 % Revision history:
 %     18 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
+%                    Added option to compute an unnormalized 'covariance'
+%                    map.
 
 groupIdxs = [1 2];
 corrProj = false;
 orth = false;
+computeCov = false;
 assignopts(who,varargin);
 
 % Constants
@@ -83,6 +90,13 @@ numGroups = length(groupIdxs);
 xDim_across = params.xDim_across;
 xDim_within = params.xDim_within;
 xDim_total = xDim_across + xDim_within;
+
+if xDim_across <= 0
+   fprintf('crossCorrMap: xDim_across = 0. Returning empty structures ccmap, ccmat\n');
+   ccmap = {};
+   ccmat = {};
+   return;
+end
 
 if corrProj
     % Compute cross-correlation maps through the correlative modes
@@ -123,8 +137,12 @@ end
 % Cross-correlation matrix
 ccmat = cell(1,xDim_across);
 for j = 1:xDim_across
-    ccmat{j} = corr(X{j}');           % Auto- and cross-correlation
-    ccmat{j} = ccmat{j}(1:T,T+1:end); % Take only cross-correlation
+    if computeCov
+        ccmat{j} = cov(X{j}');        % Auto- and cross-covariance
+    else
+        ccmat{j} = corr(X{j}');       % Auto- and cross-correlation
+    end
+    ccmat{j} = ccmat{j}(1:T,T+1:end); % Take only cross-interactions
 end
 
 % Unwrap the cross-correlation matrix to get a cross-correlation map 

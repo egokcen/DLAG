@@ -331,7 +331,7 @@ end
 % Change other input arguments as appropriate
 runIdx = 2;
 numFolds = 4;
-maxIters = 100; % Limit EM iterations during cross-validation for speedup
+maxIters = 10; % Limit EM iterations during cross-validation for speedup
 fitAll = false; % Don't fit a model to all train data
 % Determine DLAG models that satisfy the FA constraints
 xDims_grid = construct_xDimsGrid(xDim_total_fa);

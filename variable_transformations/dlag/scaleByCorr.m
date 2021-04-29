@@ -48,8 +48,8 @@ function [seq, sortParams] = scaleByCorr(seq, params, lcorr, groupIdxs, varargin
 %
 %     Optional:
 %
-%     sortDims     -- logical; set to true to sort dimensions by variance
-%                     explained. (default: true)
+%     sortDims     -- logical; set to true to sort dimensions by 
+%                     correlation. (default: true)
 %     numAcross    -- int; Keep at most the top numAcross across-group
 %                     dimensions (default: xDim_across)
 %     indatafield  -- string; fieldname of input data (default: 'xsm')
@@ -67,6 +67,7 @@ function [seq, sortParams] = scaleByCorr(seq, params, lcorr, groupIdxs, varargin
 %
 % Revision history:
 %     19 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
 
 sortDims = true;
 xDim_across = params.xDim_across;
@@ -83,6 +84,11 @@ numGroups = length(params.yDims);
 sortParams = params;
 for n = 1:N
     seq(n).(outdatafield) = []; 
+end
+
+if xDim_across <= 0
+   fprintf('scaleByCorr: xDim_across = 0. Returning empty field seq.%s and sortParams unmodified.\n', outdatafield);
+   return;
 end
 
 % Extract across-group latents, and keep only the pair of groups of interest

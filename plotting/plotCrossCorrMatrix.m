@@ -26,12 +26,17 @@ function plotCrossCorrMatrix(ccmat, binWidth, varargin)
 %
 % Revision history:
 %     18 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim = 0 case.
 
 units = [];
 assignopts(who,varargin);
 
 % Constants
 xDim = length(ccmat);
+if xDim <= 0
+   fprintf('plotCrossCorrMatrix: xDim = 0. No cross-correlation matrices to plot.\n');
+   return;
+end
 T = size(ccmat{1},1); % Length of sequence (trial)
 
 figure;

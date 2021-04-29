@@ -29,6 +29,7 @@ function plotCrossCorrMap(ccmap, binWidth, varargin)
 %
 % Revision history:
 %     18 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim = 0 case.
 
 units = [];
 peak = false;
@@ -36,6 +37,10 @@ assignopts(who,varargin);
 
 % Constants
 xDim = length(ccmap);
+if xDim <= 0
+   fprintf('plotCrossCorrMap: xDim = 0. No cross-correlation maps to plot.\n');
+   return;
+end
 T = size(ccmap{1},1); % Length of sequence (trial)
 t0 = T;               % 0-delay index
 

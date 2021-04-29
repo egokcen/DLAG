@@ -32,6 +32,7 @@ function zero_corr = zeroDelayCorr(ccmap, varargin)
 %
 % Revision history:
 %     18 Mar 2021 -- Initial full revision.
+%     28 Apr 2021 -- Added exception handling for xDim = 0 case.
 
 binWidth = 1;
 showPlot = false;
@@ -40,6 +41,11 @@ assignopts(who,varargin);
 
 % Constants
 xDim = length(ccmap);
+if xDim <= 0
+   fprintf('zeroDelayCorr: xDim = 0. Returning empty structure zero_corr\n');
+   zero_corr = {};
+   return;
+end
 T = size(ccmap{1},1); % Length of sequence (trial)
 
 zero_corr = cell(1,xDim);
@@ -49,6 +55,7 @@ for j = 1:xDim
 end
 
 if showPlot
+    % Determine vertical axis limits
     zero_corr_all = [zero_corr{:}];
     ymax = 1.05.*max(zero_corr_all(:));
     figure;
@@ -57,7 +64,7 @@ if showPlot
         hold on;
         plot((1:T).*binWidth, zero_corr{j}, 'k-');
         xlabel(sprintf('Time%s', [' (' units ')']));
-        ylabel('Zero-lag correlation');
+        ylabel('Zero-delay correlation');
         ylim([0 ymax]);
     end
 end

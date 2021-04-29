@@ -66,6 +66,7 @@ function seq = predictiveProjection_dlag(seq, params, varargin)
 % Revision history:
 %     26 Mar 2020 -- Initial full revision.
 %     17 Mar 2021 -- Overhauled to mirror correlativeProjection_dlag.m.
+%     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
 
 groupIdxs = [1 2];
 orth = false;
@@ -81,6 +82,11 @@ xDim_total = xDim_across + xDim_within;
 % Initialize output structure
 for n = 1:N
     seq(n).xpred = []; 
+end
+
+if xDim_across <= 0
+   fprintf('predictiveProjection_dlag: xDim_across = 0. Returning empty field seq.xpred\n');
+   return;
 end
 
 % Compute predictive modes
