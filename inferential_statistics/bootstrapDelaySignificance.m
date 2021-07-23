@@ -3,11 +3,12 @@ function sig = bootstrapDelaySignificance(seq, params, numBootstrap, varargin)
 % sig = bootstrapDelaySignificance(seq, params, numBootstrap, ...)
 %
 % Description: Evaluate the statistical signficance of each across-group
-%              delay. "Significance" here is defined as the relative 
-%              decrease in performance (relative to the unaltered model)
-%              that results from setting a delay to zero. Get an estimate
-%              of the variability of the prominence metric using bootstrap 
-%              samples.
+%              delay using a non-parametric bootstrap procedure. 
+%              "Significance" here is defined as the relative decrease in 
+%              performance (relative to the unaltered model) that results
+%              from setting a delay to zero. Return the proportion of 
+%              bootstrap samples on which the unaltered model gave a lower
+%              likelihood than the zero-delay model.
 %
 % Arguments:
 %
@@ -50,8 +51,6 @@ function sig = bootstrapDelaySignificance(seq, params, numBootstrap, varargin)
 %
 %     Optional:
 %
-%     alpha            -- float (in range [0 1]); significance level for 
-%                         bootstrap confidence intervals
 %     parallelize      -- logical; Set to true to use Matlab's parfor 
 %                         construct to parallelize using multiple cores. 
 %                         (default: false)
@@ -60,22 +59,20 @@ function sig = bootstrapDelaySignificance(seq, params, numBootstrap, varargin)
 %
 % Outputs:
 %
-%     sig  -- structure containing the following fields:
-%             raw    -- (1 x xDim_across) array; significance of each delay
-%                       evaluated on raw data, measured by decrease in 
-%                       log-likelihood relative to the unaltered model.
-%             upper  -- (1 x xDim_across) array; upper bound of bootstrap 
-%                       confidence interval
-%             lower  -- (1 x xDim_across) array; lower bound of bootstrap 
-%                       confidence interval
+%     sig  -- (1 x xDim_across) array; sig(i) gives the proportion of
+%             bootstrap samples on which the model with delay i set to zero
+%             performed at least as well as the unaltered model.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     23 May 2020 -- Initial full revision.
+%     19 Jul 2021 -- Function now outputs the proportion of bootstrap 
+%                    samples in which the zero-delay model performs at
+%                    least as well as the original model, rather than the 
+%                    alpha-percentile of the bootstrap distribution.
 
-alpha       = 0.05;
 parallelize = false;
 numWorkers  = 4;
 extraOpts   = assignopts(who, varargin);
@@ -83,11 +80,8 @@ extraOpts   = assignopts(who, varargin);
 N = length(seq);
 xDim_across = params.xDim_across;
 
-% Evaluate significance on raw data
-sig.raw = evalDelaySignificance(seq, params);
-
-% Store results across all bootstrap samples
-sig_all = nan(numBootstrap, xDim_across);
+% Store the bootstrap distributions for each delay
+sig_dists = nan(numBootstrap, xDim_across);
 
 % Evaluate signficance on bootstrap samples
 if parallelize
@@ -102,18 +96,20 @@ if parallelize
     % Evaluate signficance
     parfor bootIdx = 1:numBootstrap
         seqBoot = seq(bootSamples{bootIdx});
-        sig_all(bootIdx,:) = evalDelaySignificance(seqBoot, params);
+        sig_dists(bootIdx,:) = evalDelaySignificance(seqBoot, params);
     end
 else
     for bootIdx = 1:numBootstrap
         % Draw bootstrap sample
         bootSamples = datasample(1:N, N, 'Replace', true);
         seqBoot = seq(bootSamples);
-        sig_all(bootIdx,:) = evalDelaySignificance(seqBoot, params);
+        sig_dists(bootIdx,:) = evalDelaySignificance(seqBoot, params);
     end
 end
 
-% Compute confidence intervals. Fill out output structure.
-ci = prctile(sig_all, 100.*[alpha/2 1-alpha/2], 1);
-sig.lower = ci(1,:);
-sig.upper = ci(2,:);
+% For each delay, report the proportion of bootstrap samples in which the
+% zero-delay model performs at least as well as the original model.
+sig = nan(1,xDim_across);
+for dimIdx = 1:xDim_across
+    sig(dimIdx) = mean(sig_dists(:,dimIdx) <= 0);
+end
