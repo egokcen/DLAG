@@ -17,19 +17,24 @@ function Xcorr = correlativeProjection_pcca(Ys, params, varargin)
 %     Optional:
 %
 %     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order doesn't matter. (default: [1 2])
+%                  analyze. Order does not change the computation, but it
+%                  does change the order of groups in the outputs. 
+%                  (default: [1 2])
 %     orth      -- logical; If true, project onto an orthogonal (as opposed
 %                  to uncorrelated) basis. (default: false)
 %
 % Outputs:
 %
-%     Xcorr -- (2*xDim x N) array; projections onto correlative modes
+%     Xcorr -- (2*xDim x N) array; projections onto correlative modes. The
+%              first xDim latents correspond to group groupIdxs(1). The
+%              next xDim latents correspond to group groupIdxs(2).
 %
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     20 Mar 2021 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order in Xcorr.
 
 groupIdxs = [1 2];
 orth = false;

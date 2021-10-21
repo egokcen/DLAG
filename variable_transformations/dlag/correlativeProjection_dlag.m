@@ -47,7 +47,9 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 %     Optional:
 %
 %     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order doesn't matter. (default: [1 2])
+%                  analyze. Order does not change the computation, but it
+%                  does change the order of groups in the outputs. 
+%                  (default: [1 2])
 %     orth      -- logical; If true, project onto an orthogonal (as opposed
 %                  to uncorrelated) basis. (default: false)
 %
@@ -55,7 +57,10 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 %
 %     seq     -- input data structure with new field
 %                xcorr -- (2*xDim_across x T) array; trajectories
-%                         projected onto correlative modes.
+%                         projected onto correlative modes. The first 
+%                         xDim_across latents correspond to group 
+%                         groupIdxs(1). The next xDim_across latents 
+%                         correspond to group groupIdxs(2).
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -63,6 +68,7 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 % Revision history:
 %     17 Mar 2021 -- Initial full revision.
 %     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
+%     20 Oct 2021 -- Updated documentation to clarify group order in xcorr.
 
 groupIdxs = [1 2];
 orth = false;

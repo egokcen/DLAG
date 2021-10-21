@@ -46,6 +46,7 @@ function plotDimsVsTime_dlag(seq, xspec, params, binWidth, varargin)
 %     10 Apr 2021 -- Added redTrials optional argument.
 %     11 Apr 2021 -- Fixed issue with plot gap when xDim_across == 0.
 %     12 Apr 2021 -- Modified position of figure (issues on some OS's)
+%     13 Sep 2021 -- Updated labeling conventions.
 
 nPlotMax   = 20;
 plotSingle = true;
@@ -159,8 +160,8 @@ for groupIdx = 1:numGroups
         axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
         set(h, 'xtick', xtk, 'xticklabel', xtkl);
         set(h, 'ytick', ytk, 'yticklabel', ytk);
-        str = sprintf('$${\\mathbf x}^{(%d,%d)}_{a,:}$$',groupIdx,k);
-        str = sprintf('%s, $$D_{%d%d} = %3.1f$$', str, groupIdx, k, DelayMatrix(k));
+        str = sprintf('$${\\mathbf x}^{a}_{%d,%d,:}$$',groupIdx,k);
+        str = sprintf('%s, $$D_{%d,%d} = %3.1f$$', str, groupIdx, k, DelayMatrix(k));
         str = sprintf('%s%s', str, units);
         title(str, 'interpreter', 'latex', 'fontsize', fontsize);
         xlabel(sprintf('Time%s', units));
@@ -208,7 +209,7 @@ for groupIdx = 1:numGroups
         axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
         set(h, 'xtick', xtk, 'xticklabel', xtkl);
         set(h, 'ytick', ytk, 'yticklabel', ytk);
-        str = sprintf('$${\\mathbf x}^{(%d,%d)}_{w,:}$$',groupIdx,k);
+        str = sprintf('$${\\mathbf x}^{w}_{%d,%d,:}$$',groupIdx,k);
         title(str, 'interpreter', 'latex', 'fontsize', fontsize);
         xlabel(sprintf('Time%s', units));
     end

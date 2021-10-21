@@ -43,20 +43,24 @@ function [P, U, V, H] = correlativeModes_dlag(params, varargin)
 %     Optional:
 %
 %     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order doesn't matter. (default: [1 2])
+%                  analyze. Order does not change the computation, but it
+%                  does change the order of groups in the outputs. 
+%                  (default: [1 2])
 %
 % Outputs:
 %
 %     P -- (xDim_across x xDim_across) array; diagonal matrix with the
 %          cross-area correlation along each correlative mode.
-%     U -- (1 x 2) cell array; U{i} -- (yDims(i) x xDim_across) array;
-%          correlative modes for group i, which are uncorrelated but not
-%          necessarily orthogonal. U{i} = Sig_ii^(-.5)*V{i}
-%     V -- (1 x 2) cell array; V{i} -- (yDims(i) x xDim_across) array;
-%          correlative modes for group i, which are orthogonal but
-%          not necessarily uncorrelated. V{i} = Sig_ii^{.5}U{i}
-%     H -- (1 x 2) cell array; H{i} -- (yDims(i) x xDim_across) array;
-%          Projection of latents onto correlative modes: 
+%     U -- (1 x 2) cell array; U{i} -- (yDims(groupIdxs(i)) x xDim_across)
+%          array; correlative modes for group groupIdxs(i), which are 
+%          uncorrelated but not necessarily orthogonal.
+%          U{i} = Sig_ii^(-.5)*V{i}
+%     V -- (1 x 2) cell array; V{i} -- (yDims(groupIdxs(i)) x xDim_across)
+%          array; correlative modes for group groupIdxs(i), which are 
+%          orthogonal but not necessarily uncorrelated. 
+%          V{i} = Sig_ii^{.5}U{i}
+%     H -- (1 x 2) cell array; H{i} -- (yDims(groupIdxs(i)) x xDim_across)
+%          array; Projection of latents onto correlative modes: 
 %          H{i} = U{i}'Ca{i}Ka
 %
 % Authors:
@@ -64,6 +68,8 @@ function [P, U, V, H] = correlativeModes_dlag(params, varargin)
 %
 % Revision history:
 %     17 Mar 2021 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order of
+%                    outputs.
 
 groupIdxs = [1 2];
 assignopts(who,varargin);

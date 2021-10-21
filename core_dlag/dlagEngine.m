@@ -139,7 +139,7 @@ if ~isempty(seqTest)
   %%% Conditional statistics (leave out select populations)
     % Pairwise regression on test data
     [~, MSE_reg, MSEorth_reg, R2_reg, R2orth_reg] ...
-        = pairwise_regress_dlag(seqTest, estParams, 0:xDim_across, rGroups);
+        = pairwise_regress_dlag(seqTest, estParams, rGroups);
     
   %%% Joint statistics (evaluated on all populations jointly)
     % Log-likelihood and reconstruction error on test data

@@ -72,6 +72,11 @@ function plotPerfvsDim_dlag(res,varargin)
 % 
 %     Optional:
 %
+%     verbose    -- logical; set true to plot additional performance metrics
+%                   beyond cross-validated log-likelihood. These additional
+%                   metrics may provide additional insight to more
+%                   knowledgeable users, but may simply be confusing for
+%                   the average user. (default: false)
 %     plotAcross -- logical; set true to plot performance vs across-group
 %                   dimensionality, while holding within-group
 %                   dimensionalities fixed.
@@ -108,7 +113,10 @@ function plotPerfvsDim_dlag(res,varargin)
 %                    Plotting of orthonormalized DLAG performance moved
 %                    elsewhere.
 %     16 Aug 2020 -- Added xDims_grid option.
+%     20 Oct 2021 -- Minor plotting convention updates. Added verbose
+%                    option.
 
+verbose = false;
 plotAcross = true;
 groupIdx = 1;
 fixWithin = res(1).xDim_within;
@@ -191,8 +199,16 @@ end
 
 % Set up the figure and subplots
 figure;
-numCol = 3;
-numRow = 1 + numGroups;
+if verbose
+    % Plot additional performance metrics
+    numCol = 3;
+    numRow = 1 + numGroups;
+else
+    % Plot only cross-validated log-likelihood, which is the recommended
+    % metric for model selection
+    numCol = 1;
+    numRow = 1;
+end
 
 % ====================================
 % Plot joint cross-validation metrics
@@ -203,14 +219,19 @@ plotIdx = 1;
 subplot(numRow,numCol,plotIdx);
 hold on;
 xlabel(xlbl);
-ylabel('Cross-validated LL, joint');
+if verbose
+    % Disambiguate from marginal likelihoods for each group
+    ylabel('Cross-validated LL, joint');
+else
+    ylabel('Cross-validated LL');
+end
 
 sumLL = nan(1,numModels);
 for modelIdx = 1:numModels
     sumLL(modelIdx) = res(modelIdx).sumLL.joint;
 end
-plot(1:numModels, sumLL, 'o-', 'Color', colors.blues{1}, ...
-     'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
+plot(1:numModels, sumLL, 'o-', 'Color', colors.grays{1}, ...
+     'MarkerFaceColor', colors.grays{1}, 'linewidth', 1.5);
 
 % Mark the best model among the plotted models.
 legendEntries = plot(bestModel, sumLL(bestModel), 'p', ...
@@ -223,145 +244,39 @@ xticks(1:numModels);
 xticklabels(xtklbl);
 hold off;
 
-% Plot R2 versus latent dimensionality
-plotIdx = plotIdx + 1;
-subplot(numRow,numCol,plotIdx);
-hold on;
-legendEntries = [];
-legendLabels = {'denoised', 'regression'};
-
-% Based on denoised prediction
-R2_denoise = nan(1,numModels);
-R2_denoise_sem = nan(1,numModels);
-for modelIdx = 1:numModels
-    R2_denoise(modelIdx) = res(modelIdx).R2_denoise.joint;
-    R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.joint;
-end
-legendEntries(end+1) = errorbar(1:numModels, R2_denoise, R2_denoise_sem, 'o-', ...
-    'linewidth', 1.5, 'Color', colors.grays{1}, ...
-    'MarkerFaceColor', colors.grays{1});
-
-% Based on pairwise regression
-R2_reg = nan(1,numModels);
-R2_reg_sem = nan(1,numModels);
-for modelIdx = 1:numModels
-    R2_reg(modelIdx) = res(modelIdx).R2_reg.joint;
-    R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.joint;
-end
-legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
-    'linewidth', 1.5, 'Color', colors.reds{3}, ...
-    'MarkerFaceColor', colors.reds{3});
-
-xlabel(xlbl);
-ylabel('Cross-validated R^2, joint');
-legend(legendEntries, legendLabels, 'Location', 'southeast');
-xticks(1:numModels);
-xticklabels(xtklbl);
-hold off;
-
-% Plot MSE versus latent dimensionality
-plotIdx = plotIdx + 1;
-subplot(numRow,numCol,plotIdx);
-hold on;
-legendEntries = [];
-legendLabels = {'denoised', 'regression'};
-
-% Based on denoised prediction
-MSE_denoise = nan(1,numModels);
-MSE_denoise_sem = nan(1,numModels);
-for modelIdx = 1:numModels
-    MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.joint;
-    MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.joint;
-end
-legendEntries(end+1) = errorbar(1:numModels, MSE_denoise, MSE_denoise_sem, 'o-', ...
-    'linewidth', 1.5, 'Color', colors.grays{1}, ...
-    'MarkerFaceColor', colors.grays{1});
-
-% Based on pairwise regression
-MSE_reg = nan(1,numModels);
-MSE_reg_sem = nan(1,numModels);
-for modelIdx = 1:numModels
-    MSE_reg(modelIdx) = res(modelIdx).MSE_reg.joint;
-    MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.joint;
-end
-legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
-    'linewidth', 1.5, 'Color', colors.reds{3}, ...
-    'MarkerFaceColor', colors.reds{3});
-
-xlabel(xlbl);
-ylabel('Cross-validated MSE, joint');
-legend(legendEntries, legendLabels, 'Location', 'northeast');
-xticks(1:numModels);
-xticklabels(xtklbl);
-hold off;
-
-% =========================================
-% Plot individual cross-validation metrics
-% =========================================
-for groupIdx = 1:numGroups
-    
-    % Plot LL versus latent dimensionality
-    plotIdx = groupIdx*numCol + 1;
-    subplot(numRow,numCol,plotIdx);
-    hold on;
-    xlabel(xlbl);
-    ylabel(sprintf('Cross-validated LL, group %d', groupIdx));
-
-    sumLL = nan(1,numModels);
-    for modelIdx = 1:numModels
-        sumLL(modelIdx) = res(modelIdx).sumLL.indiv(groupIdx);
-    end
-    plot(1:numModels, sumLL, 'o-', 'Color', colors.blues{1}, ...
-         'MarkerFaceColor', colors.blues{1}, 'linewidth', 1.5);
-
-    % Mark the best model among the plotted models.
-    legendEntries = plot(bestModel, sumLL(bestModel), 'p', ...
-                         'color', colors.reds{4}, ...
-                         'markerfacecolor', colors.reds{4}, ...
-                         'markersize', 10);
-    legendLabels = 'best model';
-    legend(legendEntries, legendLabels, 'Location', 'southeast');
-    xticks(1:numModels);
-    xticklabels(xtklbl);
-    hold off;
-    
+% Additional performance metrics
+if verbose
     % Plot R2 versus latent dimensionality
     plotIdx = plotIdx + 1;
     subplot(numRow,numCol,plotIdx);
     hold on;
     legendEntries = [];
-    legendLabels = {};
+    legendLabels = {'denoised', 'regression'};
 
     % Based on denoised prediction
     R2_denoise = nan(1,numModels);
     R2_denoise_sem = nan(1,numModels);
     for modelIdx = 1:numModels
-        R2_denoise(modelIdx) = res(modelIdx).R2_denoise.indiv(groupIdx); 
-        R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.indiv(groupIdx);
+        R2_denoise(modelIdx) = res(modelIdx).R2_denoise.joint;
+        R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.joint;
     end
     legendEntries(end+1) = errorbar(1:numModels, R2_denoise, R2_denoise_sem, 'o-', ...
         'linewidth', 1.5, 'Color', colors.grays{1}, ...
         'MarkerFaceColor', colors.grays{1});
-    legendLabels{end+1} = 'denoised';
 
     % Based on pairwise regression
-    if ismember(groupIdx,rGroups)
-        % Get predictions conditioned on the other group in the pair
-        predGroup = setdiff(rGroups, groupIdx);
-        predIdx = find(rGroups == predGroup);
-        R2_reg = nan(1,numModels);
-        R2_reg_sem = nan(1,numModels);
-        for modelIdx = 1:numModels
-            R2_reg(modelIdx) = res(modelIdx).R2_reg.indiv(predIdx); 
-            R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.indiv(predIdx);
-        end
-        legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
-            'linewidth', 1.5, 'Color', colors.reds{3}, ...
-            'MarkerFaceColor', colors.reds{3});
-        legendLabels{end+1} = 'regression';
+    R2_reg = nan(1,numModels);
+    R2_reg_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        R2_reg(modelIdx) = res(modelIdx).R2_reg.joint;
+        R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.joint;
     end
+    legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
+        'linewidth', 1.5, 'Color', colors.reds{3}, ...
+        'MarkerFaceColor', colors.reds{3});
+
     xlabel(xlbl);
-    ylabel(sprintf('Cross-validated R^2, group %d', groupIdx));
+    ylabel('Cross-validated R^2, joint');
     legend(legendEntries, legendLabels, 'Location', 'southeast');
     xticks(1:numModels);
     xticklabels(xtklbl);
@@ -372,40 +287,142 @@ for groupIdx = 1:numGroups
     subplot(numRow,numCol,plotIdx);
     hold on;
     legendEntries = [];
-    legendLabels = {};
+    legendLabels = {'denoised', 'regression'};
 
     % Based on denoised prediction
     MSE_denoise = nan(1,numModels);
     MSE_denoise_sem = nan(1,numModels);
     for modelIdx = 1:numModels
-        MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.indiv(groupIdx); 
-        MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.indiv(groupIdx);
+        MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.joint;
+        MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.joint;
     end
     legendEntries(end+1) = errorbar(1:numModels, MSE_denoise, MSE_denoise_sem, 'o-', ...
         'linewidth', 1.5, 'Color', colors.grays{1}, ...
         'MarkerFaceColor', colors.grays{1});
-    legendLabels{end+1} = 'denoised';
 
     % Based on pairwise regression
-    if ismember(groupIdx,rGroups)
-        % Get predictions conditioned on the other group in the pair
-        predGroup = setdiff(rGroups, groupIdx);
-        predIdx = find(rGroups == predGroup);
-        MSE_reg = nan(1,numModels);
-        MSE_reg_sem = nan(1,numModels);
-        for modelIdx = 1:numModels
-            MSE_reg(modelIdx) = res(modelIdx).MSE_reg.indiv(predIdx); 
-            MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.indiv(predIdx);
-        end
-        legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
-            'linewidth', 1.5, 'Color', colors.reds{3}, ...
-            'MarkerFaceColor', colors.reds{3});
-        legendLabels{end+1} = 'regression';
+    MSE_reg = nan(1,numModels);
+    MSE_reg_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        MSE_reg(modelIdx) = res(modelIdx).MSE_reg.joint;
+        MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.joint;
     end
+    legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
+        'linewidth', 1.5, 'Color', colors.reds{3}, ...
+        'MarkerFaceColor', colors.reds{3});
+
     xlabel(xlbl);
-    ylabel(sprintf('Cross-validated MSE, group %d', groupIdx));
+    ylabel('Cross-validated MSE, joint');
     legend(legendEntries, legendLabels, 'Location', 'northeast');
     xticks(1:numModels);
     xticklabels(xtklbl);
     hold off;
+
+    % =========================================
+    % Plot individual cross-validation metrics
+    % =========================================
+    for groupIdx = 1:numGroups
+
+        % Plot LL versus latent dimensionality
+        plotIdx = groupIdx*numCol + 1;
+        subplot(numRow,numCol,plotIdx);
+        hold on;
+        xlabel(xlbl);
+        ylabel(sprintf('Cross-validated LL, group %d', groupIdx));
+
+        sumLL = nan(1,numModels);
+        for modelIdx = 1:numModels
+            sumLL(modelIdx) = res(modelIdx).sumLL.indiv(groupIdx);
+        end
+        plot(1:numModels, sumLL, 'o-', 'Color', colors.grays{1}, ...
+             'MarkerFaceColor', colors.grays{1}, 'linewidth', 1.5);
+        xticks(1:numModels);
+        xticklabels(xtklbl);
+        hold off;
+
+        % Plot R2 versus latent dimensionality
+        plotIdx = plotIdx + 1;
+        subplot(numRow,numCol,plotIdx);
+        hold on;
+        legendEntries = [];
+        legendLabels = {};
+
+        % Based on denoised prediction
+        R2_denoise = nan(1,numModels);
+        R2_denoise_sem = nan(1,numModels);
+        for modelIdx = 1:numModels
+            R2_denoise(modelIdx) = res(modelIdx).R2_denoise.indiv(groupIdx); 
+            R2_denoise_sem(modelIdx) = res(modelIdx).R2_denoise_sem.indiv(groupIdx);
+        end
+        legendEntries(end+1) = errorbar(1:numModels, R2_denoise, R2_denoise_sem, 'o-', ...
+            'linewidth', 1.5, 'Color', colors.grays{1}, ...
+            'MarkerFaceColor', colors.grays{1});
+        legendLabels{end+1} = 'denoised';
+
+        % Based on pairwise regression
+        if ismember(groupIdx,rGroups)
+            % Get predictions conditioned on the other group in the pair
+            predGroup = setdiff(rGroups, groupIdx);
+            predIdx = find(rGroups == predGroup);
+            R2_reg = nan(1,numModels);
+            R2_reg_sem = nan(1,numModels);
+            for modelIdx = 1:numModels
+                R2_reg(modelIdx) = res(modelIdx).R2_reg.indiv(predIdx); 
+                R2_reg_sem(modelIdx) = res(modelIdx).R2_reg_sem.indiv(predIdx);
+            end
+            legendEntries(end+1) = errorbar(1:numModels, R2_reg, R2_reg_sem, 'o-', ...
+                'linewidth', 1.5, 'Color', colors.reds{3}, ...
+                'MarkerFaceColor', colors.reds{3});
+            legendLabels{end+1} = 'regression';
+        end
+        xlabel(xlbl);
+        ylabel(sprintf('Cross-validated R^2, group %d', groupIdx));
+        legend(legendEntries, legendLabels, 'Location', 'southeast');
+        xticks(1:numModels);
+        xticklabels(xtklbl);
+        hold off;
+
+        % Plot MSE versus latent dimensionality
+        plotIdx = plotIdx + 1;
+        subplot(numRow,numCol,plotIdx);
+        hold on;
+        legendEntries = [];
+        legendLabels = {};
+
+        % Based on denoised prediction
+        MSE_denoise = nan(1,numModels);
+        MSE_denoise_sem = nan(1,numModels);
+        for modelIdx = 1:numModels
+            MSE_denoise(modelIdx) = res(modelIdx).MSE_denoise.indiv(groupIdx); 
+            MSE_denoise_sem(modelIdx) = res(modelIdx).MSE_denoise_sem.indiv(groupIdx);
+        end
+        legendEntries(end+1) = errorbar(1:numModels, MSE_denoise, MSE_denoise_sem, 'o-', ...
+            'linewidth', 1.5, 'Color', colors.grays{1}, ...
+            'MarkerFaceColor', colors.grays{1});
+        legendLabels{end+1} = 'denoised';
+
+        % Based on pairwise regression
+        if ismember(groupIdx,rGroups)
+            % Get predictions conditioned on the other group in the pair
+            predGroup = setdiff(rGroups, groupIdx);
+            predIdx = find(rGroups == predGroup);
+            MSE_reg = nan(1,numModels);
+            MSE_reg_sem = nan(1,numModels);
+            for modelIdx = 1:numModels
+                MSE_reg(modelIdx) = res(modelIdx).MSE_reg.indiv(predIdx); 
+                MSE_reg_sem(modelIdx) = res(modelIdx).MSE_reg_sem.indiv(predIdx);
+            end
+            legendEntries(end+1) = errorbar(1:numModels, MSE_reg, MSE_reg_sem, 'o-', ...
+                'linewidth', 1.5, 'Color', colors.reds{3}, ...
+                'MarkerFaceColor', colors.reds{3});
+            legendLabels{end+1} = 'regression';
+        end
+        xlabel(xlbl);
+        ylabel(sprintf('Cross-validated MSE, group %d', groupIdx));
+        legend(legendEntries, legendLabels, 'Location', 'northeast');
+        xticks(1:numModels);
+        xticklabels(xtklbl);
+        hold off;
+    end
+    
 end

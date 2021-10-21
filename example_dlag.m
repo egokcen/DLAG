@@ -3,7 +3,7 @@
 % ========= 
 %
 % This demo shows how we can extract latent variables from multi-population
-% data with DLAG (Gokcen et al., 2020). It's recommended to run this script
+% data with DLAG (Gokcen et al., 2021). It's recommended to run this script
 % section-by-section, rather than all at once (or put a break point before
 % Sections 2 and 3, as they may take a long time, depending on your use
 % of parallelization).
@@ -66,7 +66,7 @@
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Last Revised: 
-%     24 Jul 2021
+%     20 Oct 2021
 
 %% ================
 % 0a) Load demo data 
@@ -93,28 +93,28 @@ numWorkers = 2;      % Adjust this to your computer's specs
 
 % Let's explicitly define all of the optional arguments, for 
 % the sake of demonstration:
-runIdx = 1;           % Results will be saved in baseDir/mat_results/runXXX/,  
-                      % where XXX is runIdx. Use a new runIdx for each dataset.
-baseDir = '.';        % Base directory where results will be saved
+runIdx = 1;               % Results will be saved in baseDir/mat_results/runXXX/,  
+                          % where XXX is runIdx. Use a new runIdx for each dataset.
+baseDir = '.';            % Base directory where results will be saved
 overwriteExisting = true; % Control whether existing results files are overwritten
-saveData = false;     % Set to true to save train and test data (not recommended)
-method = 'dlag';      % For now this is the only option, but that may change in the near future
-binWidth = 20;        % Sample period / spike count bin width, in units of time (e.g., ms)
-numFolds = 0;         % Number of cross-validation folds (0 means no cross-validation)
-xDims_across = 4;     % This number of across-group latents matches the synthetic ground truth
-xDims_within = {2, 2}; % These numbers match the within-group latents in the synthetic ground truth
-yDims = [10 10];      % Number of observed features (neurons) in each group (area)
-rGroups = [1 2];      % For performance evaluation, we can regress group 2's activity with group 1
-startTau = 2*binWidth;% Initial timescale, in the same units of time as binWidth
-segLength = 25;       % Largest trial segment length, in no. of time points
-init_method = 'static'; % Initialize DLAG with fitted pCCA parameters
-learnDelays = true;   % Set to false if you want to fix delays at their initial value
-maxIters = 5e3;       % Limit the number of EM iterations (not recommended, in general)
-freqLL = 10;          % Check for data log-likelihood convergence every freqLL EM iterations
-freqParam = 100;      % Store intermediate delay and timescale estimates every freqParam EM iterations
-minVarFrac = 0.01;    % Private noise variances will not be allowed to go below this value
-verbose = true;       % Toggle printed progress updates
-randomSeed = 0;       % Seed the random number generator, for reproducibility
+saveData = false;         % Set to true to save train and test data (not recommended)
+method = 'dlag';          % For now this is the only option, but that may change in the near future
+binWidth = 20;            % Sample period / spike count bin width, in units of time (e.g., ms)
+numFolds = 0;             % Number of cross-validation folds (0 means no cross-validation)
+xDims_across = 4;         % This number of across-group latents matches the synthetic ground truth
+xDims_within = {2, 2};    % These numbers match the within-group latents in the synthetic ground truth
+yDims = [10 10];          % Number of observed features (neurons) in each group (area)
+rGroups = [1 2];          % For performance evaluation, we can regress group 2's activity with group 1
+startTau = 2*binWidth;    % Initial timescale, in the same units of time as binWidth
+segLength = 25;           % Largest trial segment length, in no. of time points
+init_method = 'static';   % Initialize DLAG with fitted pCCA parameters
+learnDelays = true;       % Set to false if you want to fix delays at their initial value
+maxIters = 5e3;           % Limit the number of EM iterations (not recommended for final fitting stage)
+freqLL = 10;              % Check for data log-likelihood convergence every freqLL EM iterations
+freqParam = 100;          % Store intermediate delay and timescale estimates every freqParam EM iterations
+minVarFrac = 0.01;        % Private noise variances will not be allowed to go below this value
+verbose = true;           % Toggle printed progress updates
+randomSeed = 0;           % Seed the random number generator, for reproducibility
 
 fit_dlag(runIdx, seqTrue, ...
          'baseDir', baseDir, ...
@@ -140,7 +140,7 @@ fit_dlag(runIdx, seqTrue, ...
          'saveData', saveData);
 
 %% =========================================================
-% 1b) Explore extracted GP parameters and compare to ground truth
+% 1b) Explore estimated GP parameters and compare to ground truth
 % ================================================================
 
 % Retrieve the fitted model of interest
@@ -177,7 +177,7 @@ plotGPparams_dlag(trueParams, res.binWidth, res.rGroups, ...
 plotGPparams_withGT_dlag(res.estParams, trueParams, res.binWidth,...
                          res.rGroups, 'units', 'ms');
 
-% Plot unordered latents but maintain delay labels
+% Plot estimated latents
 [seqEst, ~] = exactInferenceWithLL_dlag(seqTrue, res.estParams);
 plotDimsVsTime_dlag(seqEst, 'xsm', res.estParams, res.binWidth, ...
                   'nPlotMax', 1, ...
@@ -240,7 +240,8 @@ plotDimsVsTime(seqEst, 'xdom', res.binWidth, ...
                'units', 'ms');
            
 % Project latents onto zero-delay correlative modes
-seqEst = correlativeProjection_dlag(seqEst,res.estParams,'orth',false);
+seqEst = correlativeProjection_dlag(seqEst, res.estParams,...
+                                    'orth', false);
 plotDimsVsTime(seqEst, 'xcorr', res.binWidth, ...
                'nPlotMax', 20, ...
                'nCol', xDim_across, ...
@@ -250,8 +251,10 @@ plotDimsVsTime(seqEst, 'xcorr', res.binWidth, ...
 
 % Project latents onto zero-delay predictive modes
 seqEst = predictiveProjection_dlag(seqEst,res.estParams, ...
-                                     'orth',false, ...
-                                     'groupIdxs', rGroups);
+                                   'orth', false, ...
+                                   'groupIdxs', rGroups);
+% Note that the order of rows corrsponds to the order of rGroups, where
+% rGroups(1) is the source group, and rGroups(2) is the target group.
 plotDimsVsTime(seqEst, 'xpred', res.binWidth, ...
                'nPlotMax', 20, ...
                'nCol', xDim_across, ...
@@ -284,8 +287,31 @@ d_shared = findSharedDimCutoff_dlag(res.estParams, cutoffPC, 'plotSpec', true)
 psth_raw = get_psth(seqEst, 'spec', 'y');
 spec = sprintf('yDenoisedOrth%02d', sum(xDim_across + xDim_within));
 psth_denoised = get_psth(seqEst, 'spec', spec);
+
+% Raster plots
 plotSeqRaster(psth_raw, res.binWidth, 'units', 'ms');
 plotSeqRaster(psth_denoised, res.binWidth, 'units', 'ms');
+
+% Heat maps
+figure;
+hold on;
+imagesc(flipud(psth_raw));
+colormap('pink');
+colorbar;
+axis square;
+xlabel('Time (ms)');
+ylabel('Neurons');
+title(sprintf('PSTHs, raw'));
+
+figure;
+hold on;
+imagesc(flipud(psth_denoised));
+colormap('pink');
+colorbar;
+axis square;
+xlabel('Time (ms)');
+ylabel('Neurons');
+title(sprintf('PSTHs, denoised'));
                                         
 %% ===========================================================
 % 2a) Cross-validate FA models to estimate total dimensionality 
@@ -331,7 +357,7 @@ end
 % Change other input arguments as appropriate
 runIdx = 2;
 numFolds = 4;
-maxIters = 10; % Limit EM iterations during cross-validation for speedup
+maxIters = 100; % Limit EM iterations during cross-validation for speedup
 fitAll = false; % Don't fit a model to all train data
 % Determine DLAG models that satisfy the FA constraints
 xDims_grid = construct_xDimsGrid(xDim_total_fa);
@@ -453,7 +479,7 @@ bootParams = bootstrapGPparams(seqTrue, ...
                                'numWorkers', numWorkers, ...
                                'segLength', Inf, ...
                                'tolLL', 1e-4, ...
-                               'maxIters', 1e1);
+                               'maxIters', 10);
 save(boot_fname, 'bootParams', '-append');
 plotBootstrapGPparams_dlag(res.estParams, bootParams, binWidth, rGroups,...
                            'overlayParams', false);

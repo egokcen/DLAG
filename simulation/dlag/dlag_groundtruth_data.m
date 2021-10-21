@@ -26,16 +26,16 @@ yDims = [10 10];                    % Dimensionalities of each observed group
 numGroups = length(yDims);          % Total number of groups
 xDim_across = 4;                    % Across-group latent dimensionality
 xDim_within = [2 2];                % Within-group latent dimensionalities
-snr = [0.5 0.5];                    % Signal-to-noise ratios of each group
+snr = [1.0 1.0];                    % Signal-to-noise ratios of each group
 
 % GP Timescales
-tau_lim = [30 130];                 % GP timescale range
+tau_lim = [10 150];                 % GP timescale range
 
 % GP noise variances                
-eps_lim = [1e-5 1e-5];              % GP noise range
+eps_lim = [1e-3 1e-3];              % GP noise range
 
 % Delays
-delay_lim = [-25 25];               % Delay range, in samples
+delay_lim = [-30 30];               % Delay range, in samples
 
 %% Randomly generate data from a DLAG model
 

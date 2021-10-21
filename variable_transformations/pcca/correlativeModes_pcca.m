@@ -16,24 +16,28 @@ function [P, U, V] = correlativeModes_pcca(params, varargin)
 %     Optional:
 %
 %     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order doesn't matter. (default: [1 2])
+%                  analyze. Order does not change the computation, but it
+%                  does change the order of groups in the outputs. 
+%                  (default: [1 2])
 %
 % Outputs:
 %
 %     P  -- (xDim x xDim) array; diagonal matrix with the
 %           cross-area correlation along each correlative mode.
-%     U  -- (1 x 2) cell array; U{i} -- (yDims(i) x xDim) array;
-%           correlative modes for group i, which are uncorrelated but not
-%           necessarily orthogonal. U{i} = Sig_ii^(-.5)*V{i}
-%     V  -- (1 x 2) cell array; V{i} -- (yDims(i) x xDim) array;
-%           correlative modes for group i, which are orthogonal but
-%           not necessarily uncorrelated.
+%     U  -- (1 x 2) cell array; U{i} -- (yDims(groupIdxs(i)) x xDim) array;
+%           correlative modes for group groupIdxs(i), which are 
+%           uncorrelated but not necessarily orthogonal. 
+%           U{i} = Sig_ii^(-.5)*V{i}
+%     V  -- (1 x 2) cell array; V{i} -- (yDims(groupIdxs(i)) x xDim) array;
+%           correlative modes for group groupIdxs(i), which are orthogonal
+%           but not necessarily uncorrelated.
 %
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     20 Mar 2021 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order in U, V.
 
 groupIdxs = [1 2];
 assignopts(who,varargin);

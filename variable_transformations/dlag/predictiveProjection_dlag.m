@@ -51,14 +51,17 @@ function seq = predictiveProjection_dlag(seq, params, varargin)
 %                  group; groupIdxs(2) gives the target group.
 %                  (default: [1 2])
 %     orth      -- logical; If true, project source trajectories onto an 
-%                  orthogonal (as opposed) to uncorrelated) basis. 
+%                  orthogonal (as opposed to uncorrelated) basis. 
 %                  (default: false)
 %
 % Outputs:
 %
 %     seq     -- input data structure with new field
 %                    xpred -- (2*xDim_across x T) array; trajectories
-%                             projected onto predictive modes.
+%                             projected onto predictive modes. The
+%                             first xDim_across latents correspond to the
+%                             source group. The next xDim_across latents 
+%                             correspond to the target group.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -67,6 +70,7 @@ function seq = predictiveProjection_dlag(seq, params, varargin)
 %     26 Mar 2020 -- Initial full revision.
 %     17 Mar 2021 -- Overhauled to mirror correlativeProjection_dlag.m.
 %     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
+%     20 Oct 2021 -- Updated documentation to clarify group order in xpred.
 
 groupIdxs = [1 2];
 orth = false;

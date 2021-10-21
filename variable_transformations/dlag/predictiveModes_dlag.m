@@ -56,11 +56,11 @@ function [P, targetVar, U, V, H] = predictiveModes_dlag(params, varargin)
 %     U  -- (sourceDim x xDim_across) array;
 %           predictive modes for the source group, which are uncorrelated 
 %           but not necessarily orthogonal. U = Sig_11^(-.5)*V{1}
-%     V  -- (1 x 2) cell array; V{i} -- (yDims(i) x xDim_across) array;
-%           predictive modes for group i, which are orthogonal but
-%           not necessarily uncorrelated.
-%     H  -- (1 x 2) cell array; H{i} -- (yDims(i) x xDim_across) array;
-%           Projection of latents onto predictive modes: 
+%     V  -- (1 x 2) cell array; V{i} -- (yDims(groupIdxs(i)) x xDim_across)
+%           array; predictive modes for group groupIdxs(i), which are 
+%           orthogonal but not necessarily uncorrelated.
+%     H  -- (1 x 2) cell array; H{i} -- (yDims(groupIdxs(i)) x xDim_across)
+%           array; Projection of latents onto predictive modes: 
 %           H{1} = U'Ca{1}Ka; H{2} = V{2}'Ca{2}Ka
 %
 % Authors:
@@ -68,6 +68,8 @@ function [P, targetVar, U, V, H] = predictiveModes_dlag(params, varargin)
 %
 % Revision history:
 %     17 Mar 2021 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order of
+%                    outputs.
 
 groupIdxs = [1 2];
 assignopts(who,varargin);

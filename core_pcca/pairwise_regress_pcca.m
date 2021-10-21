@@ -17,11 +17,18 @@ function [Ypred, R2, MSE] = pairwise_regress_pcca(Ys, params, rGroups)
 %     R2     -- (1 x 2) array; R^2 in each pairwise direction
 %     MSE    -- (1 x 2) array; mean-squared error in each pairwise direction
 %
+%     NOTE: The group order of outputs corresponds to the group order of
+%           rGroups. For example, R2(1) is the performance of group 
+%           rGroups(1) predicting group rGroups(2). R2(2) is the 
+%           performance of group rGroups(2) predicting group rGroups(1).
+%
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     23 Mar 2019 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order of
+%                    outputs.
 
 numRGroups = length(rGroups); % Really just 2, for pairwise regression
 Ypred = cell(1,numRGroups);

@@ -28,15 +28,17 @@ function [P, U, V] = predictiveModes_pcca(params, varargin)
 %     U  -- (sourceDim x xDim) array; predictive modes for the source 
 %           group, which are uncorrelated but not necessarily orthogonal. 
 %           U = Sig_11^(-.5)*V{1}
-%     V  -- (1 x 2) cell array; V{i} -- (yDims(i) x xDim) array;
-%           predictive modes for group i, which are orthogonal but
-%           not necessarily uncorrelated.
+%     V  -- (1 x 2) cell array; V{i} -- (yDims(groupIdxs(i)) x xDim) array;
+%           predictive modes for group groupIdxs(i), which are orthogonal but
+%           not necessarily uncorrelated. The order corrsponds to that
+%           provided in groupIdxs (source group first, target group second)
 %
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     20 Mar 2021 -- Initial full revision.
+%     20 Oct 2021 -- Updated documentation to clarify group order in V.
 
 groupIdxs = [1 2];
 assignopts(who,varargin);

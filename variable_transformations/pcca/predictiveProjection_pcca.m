@@ -26,7 +26,9 @@ function Xpred = predictiveProjection_pcca(Ys, params, varargin)
 %
 % Outputs:
 %
-%     Xpred -- (2*xDim x N) array; projections onto predictive modes
+%     Xpred -- (2*xDim x N) array; projections onto predictive modes. The
+%              first xDim latents correspond to the source group. The
+%              next xDim latents correspond to the target group.
 %
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
@@ -34,6 +36,7 @@ function Xpred = predictiveProjection_pcca(Ys, params, varargin)
 % Revision history:
 %     23 Mar 2019 -- Initial full revision.
 %     20 Mar 2021 -- Overhauled to use predictiveModes_pcca.m
+%     20 Oct 2021 -- Updated documentation to clarify group order in Xpred.
 
 groupIdxs = [1 2];
 orth = false;

@@ -67,7 +67,7 @@ function [outseq, outparams] = interpolatedInference(inseq, inparams, inres, out
 %                  T (1 x 1)      -- number of *output* timesteps
 %                  xsm   -- ((numGroups*xDim) x Tout) array; posterior mean 
 %                           at each timepoint
-%                  if meanOnly == true:
+%                  if meanOnly == false:
 %                      Vsm   -- (xDim*numGroups x xDim*numGroups x Tout) array;
 %                               posterior covariance at each timepoint
 %                      VsmGP_across -- (numGroups*Tout x numGroups*Tout x xDim_across)
