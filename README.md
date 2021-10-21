@@ -5,7 +5,7 @@
 [license-img]: https://img.shields.io/github/license/mashape/apistatus.svg
 [license-url]: https://github.com/egokcen/DLAG/blob/master/LICENSE.md
 
-This project contains a Matlab implementation of DLAG, a dimensionality reduction framework for dissecting interactions between populations of neurons.
+This project contains a Matlab implementation of DLAG, a dimensionality reduction framework for disentangling the flow of signals between populations of neurons.
 
 The DLAG model, along with learning and inference procedures, are described in
 detail in the following reference:
