@@ -10,10 +10,8 @@ This project contains a Matlab implementation of DLAG, a dimensionality reductio
 The DLAG model, along with learning and inference procedures, are described in
 detail in the following reference:
 
-- “Dissecting feedforward and feedback interactions between populations of
-neurons”
-by E. A. Gokcen, J. D. Semedo, A. Zandvakili, C. K. Machens*, A. Kohn*,
-B. M. Yu*. Cosyne Abstracts, 2020. Talk.
+- Gokcen, E., Jasper, A. I., Semedo, J. D., Zandvakili, A., Kohn, A., Machens, C. K. & Yu, B. M. 
+Disentangling the flow of signals between populations of neurons. Preprint at https://doi.org/10.1101/2021.08.30.458230 (2021).
 
 Please read it carefully before using the code, as it describes all of the
 terminology and usage modes. Please cite the above reference if using any
@@ -37,12 +35,10 @@ This DLAG implementation started with base code located [here](https://github.co
 That project contains implementations of GPFA and TD-GPFA, which are described in
 the following references:
 
-- "Gaussian-process factor analysis for low-dimensional single-trial analysis of
-neural population activity"
-by B. M. Yu, J. P. Cunningham, G. Santhanam, S. I. Ryu, K. V. Shenoy,
-and M. Sahani. J Neurophysiol, vol. 102, 2009, pp. 614-635.
+- Yu, B. M., Cunningham, J. P., Santhanam, G., Ryu, S. I., Shenoy, K. V. & Sahani, M. 
+Gaussian-Process Factor Analysis for Low-Dimensional Single-Trial Analysis of Neural Population Activity. 
+Journal of Neurophysiology 102, 614–635 (2009).
 
-- "Extracting Low-Dimensional Latent Structure from Time Series in the Presence
-of Delays"
-by K. C. Lakshmanan, P. T. Sadtler, E. C. Tyler-Kabara, A. P. Batista, B. M. Yu.
-Neural Computation 2015
+- Lakshmanan, K. C., Sadtler, P. T., Tyler-Kabara, E. C., Batista, A. P. & Yu, B. M.
+Extracting Low-Dimensional Latent Structure from Time Series in the Presence of Delays.
+Neural Computation 27, 1825–1856 (2015).
