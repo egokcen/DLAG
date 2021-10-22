@@ -21,6 +21,9 @@ portion of this code for your own purposes.
 
 Simply download and extract the [latest release](https://github.com/egokcen/DLAG/releases) of this project to your desired local directory.
 
+You may need to specifically install the Matlab Bioinformatics Toolbox (https://www.mathworks.com/help/bioinfo/index.html) before getting started, 
+if it's not already installed in your Matlab build.
+
 ## Project wiki
 
 For additional information on getting started, as well as subtler usage details, see this project's wiki [here](https://github.com/egokcen/DLAG/wiki).
