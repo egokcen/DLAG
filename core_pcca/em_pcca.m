@@ -98,7 +98,7 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
         beta = C' * MM; % (xDim x yDim) array
         
         cY_beta = cY * beta'; % (yDim x xDim) array
-        Ezz = I - beta * C + beta * cY_beta;
+        Exx = I - beta * C + beta * cY_beta;
         
         % Compute the log likelihood
         LLold = LLi;
@@ -113,7 +113,7 @@ function [estParams, LL] = em_pcca(Ys, xDim, varargin)
         % M-step
         % =======
         % Intermediate computations
-        C = cY_beta / Ezz;
+        C = cY_beta / Exx;
         R = cY - cY_beta * C'; % Full update
         % Enforce R to be symmetric (helps with numerical stability too)
         R = 0.5 * (R + R');

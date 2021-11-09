@@ -61,13 +61,13 @@ function [estParams, LL] = em_fa(Y, xDim, varargin)
         scale = geomean(e(1:r));
     end
     C     = randn(yDim,xDim)*sqrt(scale/xDim);
-    R    = diag(cY);
+    R     = diag(cY);
     d     = mean(Y, 2);
 
     varFloor = minVarFrac * diag(cY);  
 
     I     = eye(xDim);
-    const = -xDim/2*log(2*pi);
+    const = -yDim/2*log(2*pi);
     LLi   = 0; 
     LL    = [];
   
@@ -81,7 +81,7 @@ function [estParams, LL] = em_fa(Y, xDim, varargin)
         beta = C' * MM; % (xDim x yDim) array
 
         cY_beta = cY * beta'; % (yDim x xDim) array
-        Ezz     = I - beta * C + beta * cY_beta;
+        Exx     = I - beta * C + beta * cY_beta;
 
         % Compute log likelihood
         LLold = LLi;    
@@ -95,7 +95,7 @@ function [estParams, LL] = em_fa(Y, xDim, varargin)
         % =======
         % M-step
         % =======
-        C  = cY_beta / Ezz;
+        C  = cY_beta / Exx;
         R = diag(cY) - sum(cY_beta .* C, 2);
 
         if isequal(typ, 'ppca')
