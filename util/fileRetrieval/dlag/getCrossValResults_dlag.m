@@ -17,6 +17,8 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %
 %     baseDir   -- string; specifies directory in which to store
 %                  mat_results. (default: '.', i.e., current directory)
+%     verbose   -- logical; set true to print out which files are being
+%                  accessed (default: true)
 % 
 % Outputs:
 %
@@ -124,8 +126,10 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %     09 Apr 2020 -- Initial full revision.
 %     23 May 2020 -- Added warning for models with errors during fitting.
 %     11 Jun 2020 -- Updated for expanded cross-validation metrics.
+%     12 Mar 2022 -- Added verbose option.
 
 baseDir  = '.';
+verbose = true;
 assignopts(who, varargin);
 res = [];
 bestModel = [];
@@ -198,8 +202,10 @@ for modelIdx = 1:numModels
     
     % Find files with the appropriate models
     fIdxs = find(ismember(cell2mat([D.xDim_all])', xDims_all(modelIdx,:), 'rows'))'; 
-    for i = fIdxs    
-        fprintf('Loading %s/%s...\n', runDir, D(i).name);
+    for i = fIdxs 
+        if verbose
+            fprintf('Loading %s/%s...\n', runDir, D(i).name);
+        end
         ws = load(sprintf('%s/%s', runDir, D(i).name));
         if ws.err_status
             % Flag models where fitting stopped due to an error

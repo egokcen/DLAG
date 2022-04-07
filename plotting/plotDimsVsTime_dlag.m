@@ -29,6 +29,7 @@ function plotDimsVsTime_dlag(seq, xspec, params, binWidth, varargin)
 %     Optional:
 %
 %     nPlotMax  -- int; maximum number of trials to plot (default: 20)
+%                  NOTE: Not relevant if trialGroups is specified.
 %     plotSingle -- logical; if true, plot single-trial trajectories
 %                   (default: true)
 %     plotMean   -- logical; if true, plot mean across single-trial
@@ -36,7 +37,14 @@ function plotDimsVsTime_dlag(seq, xspec, params, binWidth, varargin)
 %                   being plotted. (default: true)
 %     units     -- string; units of time of binWidth (for labels)
 %                  (default: '')
-%     redTrials -- int array; list of trials to highlight red (default: [])
+%     trialGroups -- (1 x numTrialGroups) cell array; Each element contains
+%                    a list of trials to be grouped together for
+%                    color-coding and for computing a mean time course.
+%                    (default: {})
+%     trialColors -- (1 x numTrialGroups) cell array; If trialGroups is
+%                    specified, then trialColors must be specified, 
+%                    where each element is the color for a given trial
+%                    group. (default: {})
 % 
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -47,12 +55,14 @@ function plotDimsVsTime_dlag(seq, xspec, params, binWidth, varargin)
 %     11 Apr 2021 -- Fixed issue with plot gap when xDim_across == 0.
 %     12 Apr 2021 -- Modified position of figure (issues on some OS's)
 %     13 Sep 2021 -- Updated labeling conventions.
+%     31 Mar 2022 -- Added option to group and color-code trials.
 
 nPlotMax   = 20;
 plotSingle = true;
 plotMean   = true;
 units      = '';
-redTrials  = [];
+trialGroups = {};
+trialColors = {};
 assignopts(who, varargin);
 
 colors = generateColors(); % Get custom colors for plotting
@@ -71,7 +81,17 @@ if isempty(Xall)
 end
 
 % Number of trajectories to be plotted
-N = min(length(seq), nPlotMax); 
+N = 0;
+allTrials = [];
+if isempty(trialGroups)
+    N = min(length(seq), nPlotMax); 
+    allTrials = 1:N;
+else
+    for trialGroupIdx = 1:length(trialGroups)
+        N = N + length(trialGroups{trialGroupIdx}); 
+        allTrials = [allTrials trialGroups{trialGroupIdx}];
+    end
+end
   
 % Group sequences and parameters
 groupSeq = partitionObs(seq,xDim_total,'datafield',xspec);
@@ -107,9 +127,9 @@ fontsize = 12; % Size of text label fonts
 for groupIdx = 1:numGroups
 
     % Determine vertical scale for current group
-    Xall = [groupSeq{groupIdx}(1:N).(xspec)];
+    Xall = [groupSeq{groupIdx}(allTrials).(xspec)];
     xMax = ceil(10*max(abs(Xall(:)))) / 10;
-    xMid = ceil(10*(xMax/2)) / 10;
+    xMid = xMax / 2; %ceil(10*(xMax/2)) / 10;
     ytk     = [-xMax -xMid 0 xMid xMax];
 
     % Convert delay labels to units of time
@@ -117,7 +137,7 @@ for groupIdx = 1:numGroups
     DelayMatrix = gp_params.DelayMatrix;
 
     % Partition latents into across- and within-group components
-    [seqAcross, seqWithin] = partitionLatents_meanOnly(groupSeq{groupIdx}(1:N), ...
+    [seqAcross, seqWithin] = partitionLatents_meanOnly(groupSeq{groupIdx}, ...
         xDim_across, xDim_within(groupIdx), 'xspec', xspec);
 
     % Initialize plotIdx to first column of the current row
@@ -128,34 +148,54 @@ for groupIdx = 1:numGroups
         plotIdx = plotIdx + 1; % Increment to the next column
         h = subplot(nRows, nCols, plotIdx);
         hold on;
-        % Initialize the mean trajectory. Only average over time points up to
-        % Tmin, if trial lengths are different.
-        xmean = zeros(1,Tmin); 
-        for n = 1:N
-            dat = seqAcross(n).(xspec);
-            if plotSingle 
-                % Plot single-trial trajectories
-                T = seqAcross(n).T;
-                if ismember(n, redTrials)
-                    % Highlight trial with red
-                    col = colors.reds{5};
-                else
-                    % Color trial black, as usual
+        if isempty(trialGroups)
+            % Initialize the mean trajectory. Only average over time points up to
+            % Tmin, if trial lengths are different.
+            xmean = zeros(1,Tmin); 
+            for n = allTrials
+                dat = seqAcross(n).(xspec);
+                if plotSingle 
+                    % Plot single-trial trajectories
+                    T = seqAcross(n).T;
                     col = colors.grays{5};
+                    plot(1:T, dat(k,:), ...
+                         'linewidth', 0.05, ...
+                         'color', col);
                 end
-                plot(1:T, dat(k,:), ...
-                     'linewidth', 0.05, ...
-                     'color', col);
+                xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
             end
-            xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
+            % Plot the mean trajectory
+            if plotMean
+                plot(1:Tmin, xmean, ...
+                     'linewidth', 2.0, ... 
+                     'color', colors.grays{1});
+            end     
+        else
+            for trialGroupIdx = 1:length(trialGroups)
+                % Initialize the mean trajectory. Only average over time 
+                % points up to Tmin, if trial lengths are different.
+                xmean = zeros(1,Tmin); 
+                for n = trialGroups{trialGroupIdx}
+                    dat = seqAcross(n).(xspec);
+                    if plotSingle 
+                        % Plot single-trial trajectories
+                        T = seqAcross(n).T;
+                        plot(1:T, dat(k,:), ...
+                             'linewidth', 0.05, ...
+                             'color', trialColors{trialGroupIdx});
+                    end
+                    xmean = xmean + (1.0/length(trialGroups{trialGroupIdx})) ...
+                            .* dat(k,1:Tmin);
+                end
+                % Plot the mean trajectory
+                if plotMean
+                    plot(1:Tmin, xmean, ...
+                         'linewidth', 2.0, ... 
+                         'color', trialColors{trialGroupIdx});
+                end
+                
+            end
         end
-        % Plot the mean trajectory
-        if plotMean
-            plot(1:Tmin, xmean, ...
-                 'linewidth', 2.0, ... 
-                 'color', colors.grays{1});
-        end
-
         % Additional formatting of titles and axis labels.
         axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
         set(h, 'xtick', xtk, 'xticklabel', xtkl);
@@ -177,34 +217,55 @@ for groupIdx = 1:numGroups
         plotIdx = plotIdx + 1;
         h = subplot(nRows, nCols, plotIdx);
         hold on;
-        % Initialize the mean trajectory. Only average over time points up to
-        % Tmin, if trial lengths are different.
-        xmean = zeros(1,Tmin); 
-        for n = 1:N
-            dat = seqWithin{1}(n).(xspec);
-            if plotSingle 
-                % Plot single-trial trajectories
-                T = seqWithin{1}(n).T;
-                if ismember(n, redTrials)
-                    % Highlight trial with red
-                    col = colors.reds{5};
-                else
-                    % Color trial black, as usual
+        if isempty(trialGroups)
+            % Initialize the mean trajectory. Only average over time points up to
+            % Tmin, if trial lengths are different.
+            xmean = zeros(1,Tmin); 
+            for n = allTrials
+                dat = seqWithin{1}(n).(xspec);
+                if plotSingle 
+                    % Plot single-trial trajectories
+                    T = seqWithin{1}(n).T;
                     col = colors.grays{5};
+                    plot(1:T, dat(k,:), ...
+                         'linewidth', 0.05, ...
+                         'color', col);
                 end
-                plot(1:T, dat(k,:), ...
-                     'linewidth', 0.05, ...
-                     'color', col);
+                xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
             end
-            xmean = xmean + (1.0/N) .* dat(k,1:Tmin);
+            % Plot the mean trajectory
+            if plotMean
+                plot(1:Tmin, xmean, ...
+                     'linewidth', 2.0, ... 
+                     'color', colors.grays{1});
+            end
+            
+        else
+            for trialGroupIdx = 1:length(trialGroups)
+                % Initialize the mean trajectory. Only average over time 
+                % points up to Tmin, if trial lengths are different.
+                xmean = zeros(1,Tmin); 
+                for n = trialGroups{trialGroupIdx}
+                    dat = seqWithin{1}(n).(xspec);
+                    if plotSingle 
+                        % Plot single-trial trajectories
+                        T = seqWithin{1}(n).T;
+                        plot(1:T, dat(k,:), ...
+                             'linewidth', 0.05, ...
+                             'color', trialColors{trialGroupIdx});
+                    end
+                    xmean = xmean + (1.0/length(trialGroups{trialGroupIdx})) ...
+                            .* dat(k,1:Tmin);
+                end
+                % Plot the mean trajectory
+                if plotMean
+                    plot(1:Tmin, xmean, ...
+                         'linewidth', 2.0, ... 
+                         'color', trialColors{trialGroupIdx});
+                end 
+            end
         end
-        % Plot the mean trajectory
-        if plotMean
-            plot(1:Tmin, xmean, ...
-                 'linewidth', 2.0, ... 
-                 'color', colors.grays{1});
-        end
-
+        
         % Additional formatting of titles and axis labels.
         axis([1 Tmax 1.1*min(ytk) 1.1*max(ytk)]);
         set(h, 'xtick', xtk, 'xticklabel', xtkl);

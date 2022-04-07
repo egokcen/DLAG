@@ -1,11 +1,10 @@
-function [P, U, V, H] = correlativeModes_dlag(params, varargin)
+function [P, V, H] = covariantModes_dlag(params, varargin)
 %
-% [P, U, V, H] = correlativeModes_dlag(params, ...)
+% [P, V, H] = covariantModes_dlag(params, ...)
 %
-% Description: Compute the correlative modes between a pair of groups, which
-%              capture the maximal (0-lag) correlation across groups.
-%                  P = V{1}'*Sig_11^(-0.5)*Ca{1}*Ka*Ca{2}'*Sig_22^(-0.5)*V{2}
-%                    = U{1}'*Ca{1}*Ka*Ca{2}'*U{2}
+% Description: Compute the covariant modes between a pair of groups, which
+%              capture the maximal (0-lag) covariance across groups.
+%                  P = V{1}'*Ca{1}*Ka*Ca{2}'*V{2}
 %                    = H{1}*H{2}'
 %
 % Arguments:
@@ -52,26 +51,19 @@ function [P, U, V, H] = correlativeModes_dlag(params, varargin)
 % Outputs:
 %
 %     P -- (xDim_across x xDim_across) array; diagonal matrix with the
-%          cross-area correlation along each correlative mode.
-%     U -- (1 x 2) cell array; U{i} -- (yDims(groupIdxs(i)) x xDim_across)
-%          array; correlative modes for group groupIdxs(i), which are 
-%          uncorrelated but not necessarily orthogonal.
-%          U{i} = Sig_ii^(-.5)*V{i}
+%          cross-area covariance along each covariant mode.
 %     V -- (1 x 2) cell array; V{i} -- (yDims(groupIdxs(i)) x xDim_across)
-%          array; correlative modes for group groupIdxs(i), which are 
-%          orthogonal but not necessarily uncorrelated. 
-%          V{i} = Sig_ii^{.5}U{i}
+%          array; covariant modes for group groupIdxs(i), which are 
+%          orthogonal but not necessarily uncorrelated.
 %     H -- (1 x 2) cell array; H{i} -- (yDims(groupIdxs(i)) x xDim_across)
-%          array; Projection of latents onto correlative modes: 
-%          H{i} = U{i}'Ca{i}Ka^(0.5)
+%          array; Projection of latents onto covariant modes: 
+%          H{i} = V{i}'Ca{i}Ka^(0.5)
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
-%     17 Mar 2021 -- Initial full revision.
-%     20 Oct 2021 -- Updated documentation to clarify group order of
-%                    outputs.
+%     26 Feb 2022 -- Initial full revision.
 %     06 Apr 2022 -- Added zerolag option.
 
 groupIdxs = [1 2];
@@ -81,7 +73,6 @@ numGroups = length(groupIdxs);
 
 % Initialize outputs
 P = [];
-U = cell(1,numGroups);
 V = cell(1,numGroups);
 H = cell(1,numGroups);
 
@@ -114,22 +105,16 @@ if xDim_across > 0
         Cw{groupIdx} = withinParams.C;
     end
 
-    % Compute cross-correlation matrix
-    Sig_11 = Ca{1}*Ca{1}' + Cw{1}*Cw{1}' + R{1};
-    Sig_22 = Ca{2}*Ca{2}' + Cw{2}*Cw{2}' + R{2};
+    % Compute cross-covariance matrix
     Sig_12 = Ca{1}*Ka*Ca{2}';
-    Corr_12 = Sig_11^(-0.5) * Sig_12 * Sig_22^(-0.5);
 
-    % Compute correlative modes
-    [V1, P, V2] = svd(Corr_12, 'econ');
+    % Compute covariant modes
+    [V1, P, V2] = svd(Sig_12, 'econ');
     P = P(1:xDim_across,1:xDim_across);
     V{1} = V1(:,1:xDim_across);
     V{2} = V2(:,1:xDim_across);
     
-    U{1} = Sig_11^(-0.5)*V{1};
-    U{2} = Sig_22^(-0.5)*V{2};
-    
-    H{1} = U{1}'*Ca{1}*Ka^(.5);
-    H{2} = U{2}'*Ca{2}*Ka^(.5);
+    H{1} = V{1}'*Ca{1}*Ka^(.5);
+    H{2} = V{2}'*Ca{2}*Ka^(.5);
     
 end

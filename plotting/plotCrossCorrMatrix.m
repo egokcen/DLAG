@@ -53,4 +53,5 @@ for j = 1:xDim
     yticklabels([T-1 0].*binWidth);
     xlabel(sprintf('Time%s', [' (' units ')']));
     ylabel(sprintf('Time%s', [' (' units ')']));
+    axis square;
 end

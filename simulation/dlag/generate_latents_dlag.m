@@ -46,6 +46,7 @@ function seq = generate_latents_dlag(params, T, N, varargin)
 %     Optional:
 %
 %     latentfield -- string; Name of data field in seq (default: 'xsm')
+%     verbose     -- logical; Print status info (default: false)
 %
 % Outputs:
 %     seq -- structure whose nth entry (corresponding to the nth sequence)
@@ -60,8 +61,10 @@ function seq = generate_latents_dlag(params, T, N, varargin)
 % 
 % Revision history:
 %     09 Jan 2021 -- Initial full revision.
+%     19 Feb 2022 -- Grouped together trials of the same length.
 
 latentfield = 'xsm';
+verbose = false;
 extraOpts = assignopts(who, varargin);
    
 % If T is a scalar, then give all sequences the same length
@@ -69,9 +72,30 @@ if length(T) <= 1
     T = repmat(T,1,N);
 end
 
+% Group trials of same length together
+Tu = unique(T);
+
+% Initialize output structure
+numGroups = length(params.xDim_within);
+xDim = numGroups*params.xDim_across + sum(params.xDim_within);
 for n = 1:N
     seq(n).trialId = n;
     seq(n).T = T(n);
-    K_big = make_K_big_dlag(params, T(n)); % GP kernel matrix
-    seq(n).(latentfield) = reshape(mvnrnd(zeros(1,size(K_big,1)), K_big),[],T(n));
+    seq(n).(latentfield) = nan(xDim,T(n));
+end
+    
+% Generate all trials of the same length
+for j = 1:length(Tu)
+    Tj = Tu(j);
+    if verbose
+        fprintf('Generating all trials of length T = %d..\n', Tj);
+    end
+    nList = find(T == Tj);
+    K_big = make_K_big_dlag(params, Tj); % GP kernel matrix
+    for n = nList
+        if verbose
+            fprintf('    Trial n = %d...\n', nList(n));
+        end
+        seq(n).(latentfield) = reshape(mvnrnd(zeros(1,size(K_big,1)), K_big),[],Tj);
+    end
 end

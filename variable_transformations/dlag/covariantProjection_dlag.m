@@ -1,10 +1,10 @@
-function seq = predictiveProjection_dlag(seq, params, varargin)
+function seq = covariantProjection_dlag(seq, params, varargin)
 %
-% seq = predictiveProjection_dlag(seq, params, ...)
+% seq = covariantProjection_dlag(seq, params, ...)
 %
 % Description: Project the latent trajectories inferred by a DLAG
-%              model onto predictive modes, which capture the maximal 
-%              (0-lag) predictive power between a source and target group.
+%              model onto covariant modes, which capture the maximal 
+%              (0-lag) covariance between a pair of groups.
 %
 % Arguments:
 %
@@ -47,36 +47,29 @@ function seq = predictiveProjection_dlag(seq, params, varargin)
 %     Optional:
 %
 %     groupIdxs -- (1 x 2) int array; Specify which pair of groups to
-%                  analyze. Order matters: groupIdxs(1) gives the source
-%                  group; groupIdxs(2) gives the target group.
+%                  analyze. Order does not change the computation, but it
+%                  does change the order of groups in the outputs. 
 %                  (default: [1 2])
-%     orth      -- logical; If true, project source trajectories onto an 
-%                  orthogonal (as opposed to uncorrelated) basis. 
-%                  (default: false)
 %     zerolag   -- logical; set true to compute zero-lag modes, false
 %                  to compute modes that factor in delays (default: true)
 %
 % Outputs:
 %
 %     seq     -- input data structure with new field
-%                    xpred -- (2*xDim_across x T) array; trajectories
-%                             projected onto predictive modes. The
-%                             first xDim_across latents correspond to the
-%                             source group. The next xDim_across latents 
-%                             correspond to the target group.
+%                xcov  -- (2*xDim_across x T) array; trajectories
+%                         projected onto covariant modes. The first 
+%                         xDim_across latents correspond to group 
+%                         groupIdxs(1). The next xDim_across latents 
+%                         correspond to group groupIdxs(2).
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
-%     26 Mar 2020 -- Initial full revision.
-%     17 Mar 2021 -- Overhauled to mirror correlativeProjection_dlag.m.
-%     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
-%     20 Oct 2021 -- Updated documentation to clarify group order in xpred.
+%     26 Feb 2022 -- Initial full revision.
 %     06 Apr 2022 -- Added zerolag option.
 
 groupIdxs = [1 2];
-orth = false;
 zerolag = true;
 assignopts(who,varargin);
 
@@ -89,16 +82,16 @@ xDim_total = xDim_across + xDim_within;
 
 % Initialize output structure
 for n = 1:N
-    seq(n).xpred = []; 
+    seq(n).xcov = []; 
 end
 
 if xDim_across <= 0
-   fprintf('predictiveProjection_dlag: xDim_across = 0. Returning empty field seq.xpred\n');
+   fprintf('covariantProjection_dlag: xDim_across = 0. Returning empty field seq.xcov\n');
    return;
 end
 
-% Compute predictive modes
-[~, ~, U, V, ~] = predictiveModes_dlag(params, 'groupIdxs', groupIdxs, 'zerolag', zerolag);
+% Compute covariant modes
+[~, V, ~] = covariantModes_dlag(params, 'groupIdxs', groupIdxs, 'zerolag', zerolag);
 
 % Get across-group loading matrices
 groupParams = partitionParams_dlag(params);
@@ -118,16 +111,11 @@ for groupIdx = 1:numGroups
     [x_across, ~] = partitionLatents_meanOnly(groupSeq{groupIdx}, ...
                         xDim_across, xDim_within(groupIdx));
     Xacross = [x_across.xsm];
-    if orth || groupIdx > 1
-        % Project target and/or source onto orthogonal basis
-        Xpred = V{groupIdx}' * Ca{groupIdx} * Xacross;
-    else
-        % Project source onto uncorrelated basis
-        Xpred = U' * Ca{groupIdx} * Xacross;
-    end
+    % Project onto orthogonal basis
+    Xcov = V{groupIdx}' * Ca{groupIdx} * Xacross;
     % Add projected latents to output structure
-    seqTemp = segmentByTrial(seq,Xpred,'xpred');
+    seqTemp = segmentByTrial(seq,Xcov,'xcov');
     for n = 1:N
-        seq(n).xpred = [seq(n).xpred; seqTemp(n).xpred];
+        seq(n).xcov = [seq(n).xcov; seqTemp(n).xcov];
     end
 end

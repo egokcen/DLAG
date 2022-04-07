@@ -19,14 +19,22 @@ function [LL, R2, MSE] = indepGroupEval(Ys, params, rGroups)
 % Outputs:
 %
 %     LL  -- float; log likelihood of the data
-%     R2  -- (1 x 2) array; R^2 in each pairwise direction 
-%     MSE -- (1 x 2) array; mean-squared error in each pairwise direction
+%     R2  -- structure with the following fields:
+%            indiv -- (1 x 2) array; R^2 in each pairwise direction
+%            joint -- float; R^2 computed across both groups jointly
+%                        (leave-group-out prediction)
+%     MSE -- structure with the following fields:
+%            indiv -- (1 x 2) array; mean-squared error in each 
+%                      pairwise direction
+%            joint -- float; mean-squared error across both groups
+%                     (leave-group-out prediction)
 %
 % Authors: 
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     23 Mar 2019 -- Initial full revision.
+%     25 Feb 2022 -- Added leave-group-out (joint) prediction metrics.
 
     numGroups = length(Ys);
     N = size(Ys{1},2);
@@ -56,21 +64,33 @@ function [LL, R2, MSE] = indepGroupEval(Ys, params, rGroups)
     
     % Compute R^2 and MSE for the groups in rGroups
     numRGroups = length(rGroups);
-    R2 = nan(1,numRGroups);
-    MSE = nan(1,numRGroups);
+    Ypred = cell(1,numRGroups);
+    Ytrue = cell(1,numRGroups);
+    R2.indiv = nan(1,numRGroups);
+    MSE.indiv = nan(1,numRGroups);
     for rIdx = 1:numRGroups
         currSourceGroup = rGroups(rIdx);
         currTargetGroup = rGroups(setdiff(1:numRGroups,rIdx));
         Ytarget = Ys{currTargetGroup};
+        Ytrue{rIdx} = Ytarget;
         % For pairwise regression, independent groups is
         % the same as predicting the mean every time
         d = ds{currTargetGroup};
-        Ypred = repmat( d, [1 size(Ytarget,2)] );
+        Ypred{rIdx} = repmat( d, [1 size(Ytarget,2)] );
         
-        RSS = sum( sum( ( Ytarget - Ypred ).^2, 1 ) );
+        RSS = sum( sum( ( Ytarget - Ypred{rIdx} ).^2, 1 ) );
         TSS = sum( sum( ( Ytarget - repmat( mean(Ytarget,2), [1 size(Ytarget,2)] ) ).^2, 1 ) );
-        R2(rIdx) = 1 - RSS / TSS;
-        MSE(rIdx) = immse(Ypred, Ytarget);
+        R2.indiv(rIdx) = 1 - RSS / TSS;
+        MSE.indiv(rIdx) = immse(Ypred{rIdx}, Ytarget);
     end
+    
+    % Compute joint performance metrics
+    Ytrue_joint = cat(1,Ytrue{:});
+    Ypred_joint = cat(1,Ypred{:});
+
+    MSE.joint = immse(Ypred_joint, Ytrue_joint);
+    RSS = sum( sum( ( Ytrue_joint - Ypred_joint ).^2, 1 ) );
+    TSS = sum( sum( ( Ytrue_joint - repmat( mean(Ytrue_joint,2), [1 size(Ytrue_joint,2)] ) ).^2, 1 ) );
+    R2.joint = 1 - RSS / TSS;
     
 end

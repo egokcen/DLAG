@@ -3,7 +3,7 @@ function [P, targetVar, U, V, H] = predictiveModes_dlag(params, varargin)
 % [P, targetVar, U, V, H] = predictiveModes_dlag(params, ...)
 %
 % Description: Compute the predictive modes between a source and target
-%              group, which capture maximal 0-lag predictive power from
+%              group, which capture maximal (0-lag) predictive power from
 %              source to target.
 %                  P = V{1}'*Sig_11^(-0.5)*Ca{1}*Ka*Ca{2}'*V{2}
 %                    = U{1}'*Ca{1}*Ka*Ca{2}'*V{2}
@@ -47,6 +47,8 @@ function [P, targetVar, U, V, H] = predictiveModes_dlag(params, varargin)
 %                  analyze. Order matters: groupIdxs(1) gives the source
 %                  group; groupIdxs(2) gives the target group.
 %                  (default: [1 2])
+%     zerolag   -- logical; set true to compute zero-lag modes, false
+%                  to compute modes that factor in delays (default: true)
 %
 % Outputs:
 %
@@ -70,8 +72,10 @@ function [P, targetVar, U, V, H] = predictiveModes_dlag(params, varargin)
 %     17 Mar 2021 -- Initial full revision.
 %     20 Oct 2021 -- Updated documentation to clarify group order of
 %                    outputs.
+%     06 Apr 2022 -- Added zerolag option.
 
 groupIdxs = [1 2];
+zerolag = true;
 assignopts(who,varargin);
 numGroups = length(groupIdxs);
 
@@ -86,8 +90,14 @@ H = cell(1,numGroups);
 xDim_across = params.xDim_across;
 if xDim_across > 0
 
-    % Get the 0-lag portion of the across-group GP kernel matrix, Ka(t,t)
-    Ka = getZeroLagK_across(params,'groupIdxs',groupIdxs);
+    if zerolag
+        % Get the 0-lag portion of the across-group GP kernel matrix, Ka(t,t)
+        Ka = getZeroLagK_across(params,'groupIdxs',groupIdxs);
+    else
+        % Otherwise, set Ka to the identity matrix, thereby maintaining
+        % time delays in the computation of modes.
+        Ka = eye(xDim_across);
+    end
 
     % Get observation parameters for each group
     groupParams = partitionParams_dlag(params);

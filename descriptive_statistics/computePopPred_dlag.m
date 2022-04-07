@@ -6,6 +6,7 @@ function pred = computePopPred_dlag(params, varargin)
 %                - The 'population R^2' (a DLAG fit-derived coefficient of 
 %                  determination) between a pair of groups.
 %                - Predictive power within each predictive mode.
+%                - An aggregrate leave-group-out R^2 value.
 %
 % Arguments:
 %
@@ -45,42 +46,73 @@ function pred = computePopPred_dlag(params, varargin)
 %                  analyze. Order matters: groupIdxs(1) gives the source
 %                  group; groupIdxs(2) gives the target group.
 %                  (default: [1 2])
+%     zerolag   -- logical; set true to compute zero-lag modes, false
+%                  to compute modes that factor in delays (default: true)
 %
 % Outputs:
 %
 %     pred -- structure with the following fields:
-%                 tpred      --  float; total predictive power
-%                                tpred = sum(mpred).
-%                 mpred      -- (1 x xDim_across) array; predictive power
-%                               within each predictive mode.
+%                 tpred      -- (numGroups x 1) array; tpred(i) gives the
+%                               total predictive power, sum(mpred(i,:)) 
+%                               when group groupIdxs(i) is predicted by the
+%                               other group.
+%                 mpred      -- (numGroups x xDim_across) array; mpred(i,:)
+%                               gives the predictive power within each 
+%                               predictive mode, when group groupIdxs(i)
+%                               is predicted by the other group (note that
+%                               modes change for each group)
+%                 R2lpo      -- float; R^2 value aggregated over all
+%                               groups.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     17 Mar 2021 -- Initial full revision.
+%     28 Feb 2022 -- Added aggregate leave-group-out metric.
+%     06 Apr 2022 -- Added zerolag option.
 
 groupIdxs = [1 2];
+zerolag = true;
 assignopts(who,varargin);
 
 % Initialize part of the output structure
 xDim_across = params.xDim_across;
-pred.tpred = 0;
-pred.mpred = 0;
+numGroups = length(params.yDims);
+pred.tpred = zeros(numGroups,1);
+pred.mpred = zeros(numGroups,1);
+pred.R2lpo = 0;
 
 % Only proceed if there are across-group dimensions
 if xDim_across > 0
     
     % Initialize the rest of the output structure
-    pred.mpred = nan(1,xDim_across);
+    pred.mpred = nan(numGroups,xDim_across);
+    
+    predVars = nan(numGroups,1);
+    targetVars = nan(numGroups,1);
 
-    % Compute predictive modes
-    [P, targetVar, ~, ~, ~] = predictiveModes_dlag(params,'groupIdxs',groupIdxs);
+    for groupIdx = 1:length(groupIdxs)
+        
+        % Index of source group
+        currSourceGroup = groupIdxs(groupIdx);
+        
+        % Index of the "held-out" target group
+        currTargetGroup = setdiff(groupIdxs,currSourceGroup);
+        
+        % Compute predictive modes
+        [P, targetVar, ~, ~, ~] = predictiveModes_dlag(params,'groupIdxs',[currSourceGroup currTargetGroup],'zerolag',zerolag);
+        predVars(groupIdx) = trace(P.^2);
+        targetVars(groupIdx) = targetVar;
+        
+        % Predictive power (R^2) within each predictive mode
+        pred.mpred(groupIdx,:) = (diag(P)').^2 ./ targetVar;
 
-    % Predictive power (R^2) within each predictive mode
-    pred.mpred = (diag(P)').^2 ./ targetVar;
-
-    % Total 'population R^2'
-    pred.tpred = sum(pred.mpred);
+        % Total 'population R^2'
+        pred.tpred(groupIdx) = sum(pred.mpred(groupIdx,:));
+    end
+    
+    % Aggregate R^2 across all groups
+    pred.R2lpo = sum(predVars) / sum(targetVars);
 
 end

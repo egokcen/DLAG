@@ -1,6 +1,6 @@
-function [outseq, outparams] = interpolatedInference(inseq, inparams, inres, outres, varargin)
+function [outseq, outparams, outvar] = interpolatedInference(inseq, inparams, inres, outres, varargin)
 %
-% [outseq, outparams] = interpolatedInference(inseq, inparams, inres, outres, ...)
+% [outseq, outparams, outvar] = interpolatedInference(inseq, inparams, inres, outres, ...)
 %
 % Description: Infer latent trajectories with resolution outres, given 
 %              observations sampled with resolution (sample period or bin
@@ -67,18 +67,6 @@ function [outseq, outparams] = interpolatedInference(inseq, inparams, inres, out
 %                  T (1 x 1)      -- number of *output* timesteps
 %                  xsm   -- ((numGroups*xDim) x Tout) array; posterior mean 
 %                           at each timepoint
-%                  if meanOnly == false:
-%                      Vsm   -- (xDim*numGroups x xDim*numGroups x Tout) array;
-%                               posterior covariance at each timepoint
-%                      VsmGP_across -- (numGroups*Tout x numGroups*Tout x xDim_across)
-%                                      array; posterior covariance of each 
-%                                      across-group GP
-%                      VsmGP_within -- (1 x numGroups) cell array;
-%                                      VsmGP_within{i} -- (Tout x Tout x xDim_within(i))
-%                                      array; posterior covariance of each
-%                                      within-group GP for group i
-%                                      VsmGP_within(i) is empty wherever 
-%                                      xDim_within(i) is 0
 %
 %     outparams  -- Structure containing DLAG model parameters, in units
 %                   normalized by output resolution, outres. 
@@ -110,6 +98,23 @@ function [outseq, outparams] = interpolatedInference(inseq, inparams, inres, out
 %                    yDims        -- (1 x numGroups) array; 
 %                                    dimensionalities of each observed group
 %
+%     outvar    -- (1 x Tu) structure (each entry corresponds to a group
+%                  of trials that have the same trial length)
+%                  with the following fields (if meanOnly == false; empty
+%                  otherwise):
+%                  
+%                  Vsm   -- (xDim*numGroups x xDim*numGroups x Tout) array;
+%                           posterior covariance at each timepoint
+%                  VsmGP_across -- (numGroups*Tout x numGroups*Tout x xDim_across)
+%                                  array; posterior covariance of each 
+%                                  across-group GP
+%                  VsmGP_within -- (1 x numGroups) cell array;
+%                                  VsmGP_within{i} -- (Tout x Tout x xDim_within(i))
+%                                  array; posterior covariance of each
+%                                  within-group GP for group i
+%                                  VsmGP_within(i) is empty wherever 
+%                                  xDim_within(i) is 0
+%
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
@@ -117,6 +122,8 @@ function [outseq, outparams] = interpolatedInference(inseq, inparams, inres, out
 %     26 Feb 2021 -- Initial full revision.
 %     27 Feb 2021 -- Fixed indexing issue that produced future predictions.
 %     13 Mar 2021 -- Added use of convertParamUnits
+%     03 Feb 2021 -- Modified output structure to include the posterior 
+%                    covariance, which is the same for all trials.
 
 % Optional arguments
 meanOnly = true;
@@ -142,6 +149,10 @@ outparams = convertParamUnits(inparams, inres, outres);
 % Initialize outseq
 for n = 1:length(inseq)
     outseq(n).trialId = inseq(n).trialId;
+end
+
+if meanOnly
+    outvar = []; 
 end
 
 % Group trials of same length together
@@ -215,6 +226,12 @@ for j = 1:length(Tu)
                 end
             end
         end
+        
+        % Add posterior covariances to output structure
+        outvar(j).Vsm   = Vsm;
+        outvar(j).VsmGP_across = VsmGP_across;
+        outvar(j).VsmGP_within = VsmGP_within;
+        
     end
     
     % Process all trials with length T
@@ -236,12 +253,7 @@ for j = 1:length(Tu)
     ctr = 1;
     for n = nList
       outseq(n).T     = Tout;
-      outseq(n).xsm   = reshape(xsmMat(:,ctr), mp, Tout); 
-      if ~meanOnly
-          outseq(n).Vsm   = Vsm;
-          outseq(n).VsmGP_across = VsmGP_across;
-          outseq(n).VsmGP_within = VsmGP_within;
-      end
+      outseq(n).xsm   = reshape(xsmMat(:,ctr), mp, Tout);
       ctr = ctr + 1;
     end
     

@@ -26,14 +26,26 @@ function [res, bestModel] = getCrossValResults_pcca(runIdx,varargin)
 %              sumLL  -- float; cross-validated log-likelihood
 %              LL     -- float; average cross-validated log-likelihood
 %              LL_sem -- float; standard error of LL across CV folds
-%              R2     -- (1 x 2) array; average cross-validated R^2 in each
-%                        pairwise direction, for the pair in rGroups.
-%              R2_sem -- (1 x 2) array; standard error of R2 across CV folds
-%              MSE    -- (1 x 2) array; average cross-validated 
-%                        mean-squared error in each pairwise direction, for 
-%                        the pair in rGroups.
-%              MSE_sem -- (1 x 2) array; standard error of MSE across CV 
-%                         folds
+%              R2.joint     -- float; average cross-validated
+%                              leave-group-out R^2, evaluated across the
+%                              pair in rGroups
+%              R2.indiv     -- (1 x 2) array; average cross-validated R^2 
+%                              in each pairwise direction, for the pair in
+%                              rGroups.
+%              R2_sem.joint -- float; standard error of R2.joint across CV
+%                              folds
+%              R2_sem.indiv -- (1 x 2) array; standard error of R2.indiv
+%                              across CV folds
+%              MSE.joint    -- float; average cross-validated 
+%                              leave-group-out mean-squared error,
+%                              evaluated across the pair in rGroups
+%              MSE.indiv    -- (1 x 2) array; average cross-validated 
+%                              mean-squared error in each pairwise 
+%                              direction, for the pair in rGroups.
+%              MSE_sem.indiv -- (1 x 2) array; standard error of MSE.indiv  
+%                               across CV folds
+%              MSE_sem.joint -- float; standard error of MSE.joint across
+%                               CV folds
 %              estParams -- model parameters estimated using all data
 %              rGroups -- (1 x 2) array; the indexes of two groups 
 %                         used to measure generalization performance
@@ -46,6 +58,7 @@ function [res, bestModel] = getCrossValResults_pcca(runIdx,varargin)
 %
 % Revision history:
 %     09 Apr 2020 -- Initial full revision.
+%     25 Feb 2022 -- Added leave-group-out (joint) prediction metrics.
 
 baseDir  = '.';
 assignopts(who, varargin);
@@ -80,8 +93,10 @@ for modelIdx = 1:numModels
     res(modelIdx).xDim = xDim;
     % We'll collect performance metrics in the following arrays
     cvLL = nan(numFolds,1);
-    cvR2 = nan(numFolds,2);
-    cvMSE = nan(numFolds,2);
+    cvR2.joint = nan(numFolds,1);
+    cvR2.indiv = nan(numFolds,2);
+    cvMSE.joint = nan(numFolds,1);
+    cvMSE.indiv = nan(numFolds,2);
     fIdxs = find((xDim == [D.xDim])); % Find files with the appropriate models
     for i = fIdxs    
         fprintf('Loading %s/%s...\n', runDir, D(i).name);
@@ -94,18 +109,24 @@ for modelIdx = 1:numModels
         else
             % For models trained on CV folds, get performance metrics
             cvLL(ws.cvf) = ws.LLtest;
-            cvR2(ws.cvf,:) = ws.R2;
-            cvMSE(ws.cvf,:) = ws.MSE;
+            cvR2.joint(ws.cvf) = ws.R2.joint;
+            cvR2.indiv(ws.cvf,:) = ws.R2.indiv;
+            cvMSE.joint(ws.cvf) = ws.MSE.joint;
+            cvMSE.indiv(ws.cvf,:) = ws.MSE.indiv;
         end
     end 
     % Compute averages and SEMs
     res(modelIdx).sumLL = sum(cvLL);
     res(modelIdx).LL = mean(cvLL);
     res(modelIdx).LL_sem = std(cvLL,0) / sqrt(numFolds);
-    res(modelIdx).R2 = mean(cvR2,1);
-    res(modelIdx).R2_sem = std(cvR2,0,1) / sqrt(numFolds);
-    res(modelIdx).MSE = mean(cvMSE,1);
-    res(modelIdx).MSE_sem = std(cvMSE,0,1) / sqrt(numFolds);
+    res(modelIdx).R2.joint = mean(cvR2.joint);
+    res(modelIdx).R2_sem.joint = std(cvR2.joint,0) / sqrt(numFolds);
+    res(modelIdx).R2.indiv = mean(cvR2.indiv,1);
+    res(modelIdx).R2_sem.indiv = std(cvR2.indiv,0,1) / sqrt(numFolds);
+    res(modelIdx).MSE.joint = mean(cvMSE.joint);
+    res(modelIdx).MSE_sem.joint = std(cvMSE.joint,0) / sqrt(numFolds);
+    res(modelIdx).MSE.indiv = mean(cvMSE.indiv,1);
+    res(modelIdx).MSE_sem.indiv = std(cvMSE.indiv,0,1) / sqrt(numFolds);
 end
 
 % Find the best model, based on sumLL

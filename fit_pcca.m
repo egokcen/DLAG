@@ -119,10 +119,20 @@ function result = fit_pcca(runIdx, dat, varargin)
 %     
 %     LLtest  -- float; final data log likelihood evaluated 
 %                on test data
-%     MSE     -- (1 x 2) array; mean-squared error in each pairwise 
-%                direction, for pairwise regression performed on test data
-%     R2      -- (1 x 2) array; R^2 in each pairwise direction, for
-%                pairwise regression performed on test data
+%     R2      -- structure with the following fields:
+%                indiv -- (1 x 2) array; R^2 in each pairwise direction,
+%                         for regression performed on the test data
+%                joint -- float; R^2 computed across both groups jointly
+%                         (leave-group-out prediction), for regression 
+%                         performed on the test data
+%     MSE     -- structure with the following fields:
+%                indiv -- (1 x 2) array; mean-squared error in each 
+%                         pairwise direction, for regression performed on 
+%                         the test data
+%                joint -- float; mean-squared error across both groups
+%                         (leave-group-out prediction), for regression 
+%                         performed on the test data
+%
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
@@ -138,6 +148,8 @@ function result = fit_pcca(runIdx, dat, varargin)
 %     24 May 2020 -- Moved printed info about fitted models from
 %                    call_pcca_engine.m to here. That move cleans up prints 
 %                    during parallelization.
+%     25 Feb 2022 -- Updated documentation with leave-group-out (joint)
+%                    prediction metrics.
 
 % Specify defaults for optional arguments
 baseDir              = '.';

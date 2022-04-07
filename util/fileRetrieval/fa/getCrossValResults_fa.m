@@ -17,6 +17,8 @@ function [res, bestModels] = getCrossValResults_fa(runIdx,varargin)
 %
 %     baseDir   -- string; specifies directory in which to store
 %                  mat_results. (default: '.', i.e., current directory)
+%     verbose   -- logical; set true to print out which files are being
+%                  accessed (default: true)
 % 
 % Outputs:
 %
@@ -36,8 +38,10 @@ function [res, bestModels] = getCrossValResults_fa(runIdx,varargin)
 %
 % Revision history:
 %     17 Aug 2020 -- Initial full revision.
+%     12 Mar 2022 -- Added verbose option.
 
 baseDir  = '.';
+verbose = true;
 assignopts(who, varargin);
 res = [];
 
@@ -79,7 +83,9 @@ for groupIdx = 1:numGroups
         cvLL = nan(numFolds,1);
         fIdxs = find((xDim == [currD.xDim])); % Find files with the appropriate models
         for i = fIdxs    
-            fprintf('Loading %s/%s...\n', runDir, currD(i).name);
+            if verbose
+                fprintf('Loading %s/%s...\n', runDir, currD(i).name);
+            end
             ws = load(sprintf('%s/%s', runDir, currD(i).name));
             if ws.cvf == 0
                 % For models trained on all data, extract the estimated

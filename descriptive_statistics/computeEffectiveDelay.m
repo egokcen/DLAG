@@ -33,6 +33,8 @@ function delay_eff = computeEffectiveDelay(ccmap, binWidth, varargin)
 %     18 Mar 2021 -- Initial full revision.
 %     28 Apr 2021 -- Added exception handling for xDim = 0 case.
 %                    Improved plot formatting along vertical axis.
+%     02 Feb 2022 -- Modified output units of delay_eff to match the units
+%                    binWidth.
 
 showPlot = false;
 units = [];
@@ -50,17 +52,18 @@ T = size(ccmap{1},1); % Length of sequence (trial)
 delay_eff = cell(1,xDim);
 for j = 1:xDim
     [~, delay_eff{j}] = max(flipud(ccmap{j}),[],2);
+    delay_eff{j} = (delay_eff{j}-T).*binWidth;
 end
 
 if showPlot
     % Determine vertical axis limits
     delay_all = [delay_eff{:}];
-    ymax = 1.05.*max([abs((delay_all(:)-T).*binWidth); binWidth]);
+    ymax = 1.05.*max([abs(delay_all(:)); binWidth]);
     figure;
     for j = 1:xDim
         subplot(1,xDim,j);
         hold on;
-        plot((1:T).*binWidth, (delay_eff{j}-T).*binWidth, 'k-');
+        plot((1:T).*binWidth, delay_eff{j}, 'k-');
         plot((1:T).*binWidth,zeros(1,T),'color',[0.5 0.5 0.5],'linestyle','--');
         xlabel(sprintf('Time%s', [' (' units ')']));
         ylabel(sprintf('Effective Delay%s', [' (' units ')']));

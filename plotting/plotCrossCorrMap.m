@@ -63,4 +63,5 @@ for j = 1:xDim
     yticklabels([0 T-1].*binWidth);
     xlabel(sprintf('Delay%s', [' (' units ')']));
     ylabel(sprintf('Time%s', [' (' units ')']));
+    axis square;
 end

@@ -14,14 +14,26 @@ function plotPerfvsDim_pcca(res,varargin)
 %              sumLL  -- float; cross-validated log-likelihood
 %              LL     -- float; average cross-validated log-likelihood
 %              LL_sem -- float; standard error of LL across CV folds
-%              R2     -- (1 x 2) array; average cross-validated R^2 in each
-%                        pairwise direction, for the pair in rGroups.
-%              R2_sem -- (1 x 2) array; standard error of R2 across CV folds
-%              MSE    -- (1 x 2) array; average cross-validated 
-%                        mean-squared error in each pairwise direction, for 
-%                        the pair in rGroups.
-%              MSE_sem -- (1 x 2) array; standard error of MSE across CV 
-%                         folds
+%              R2.joint     -- float; average cross-validated
+%                              leave-group-out R^2, evaluated across the
+%                              pair in rGroups
+%              R2.indiv     -- (1 x 2) array; average cross-validated R^2 
+%                              in each pairwise direction, for the pair in
+%                              rGroups.
+%              R2_sem.joint -- float; standard error of R2.joint across CV
+%                              folds
+%              R2_sem.indiv -- (1 x 2) array; standard error of R2.indiv
+%                              across CV folds
+%              MSE.joint    -- float; average cross-validated 
+%                              leave-group-out mean-squared error,
+%                              evaluated across the pair in rGroups
+%              MSE.indiv    -- (1 x 2) array; average cross-validated 
+%                              mean-squared error in each pairwise 
+%                              direction, for the pair in rGroups.
+%              MSE_sem.indiv -- (1 x 2) array; standard error of MSE.indiv  
+%                               across CV folds
+%              MSE_sem.joint -- float; standard error of MSE.joint across
+%                               CV folds
 %              estParams -- model parameters estimated using all data
 %              rGroups -- (1 x 2) array; the indexes of two groups 
 %                         used to measure generalization performance
@@ -44,6 +56,7 @@ function plotPerfvsDim_pcca(res,varargin)
 %
 % Revision history:
 %     09 Apr 2020 -- Initial full revision.
+%     25 Feb 2022 -- Added leave-group-out (joint) prediction metrics.
 
 bestModel = [];
 plotLL = true;
@@ -100,15 +113,27 @@ if plotR2
         R2 = nan(1,numModels);
         R2_sem = nan(1,numModels);
         for modelIdx = 1:numModels
-            R2(modelIdx) = res(modelIdx).R2(rIdx);
-            R2_sem(modelIdx) = res(modelIdx).R2_sem(rIdx);
+            R2(modelIdx) = res(modelIdx).R2.indiv(rIdx);
+            R2_sem(modelIdx) = res(modelIdx).R2_sem.indiv(rIdx);
         end
         legendEntries(end+1) = errorbar(xDim, R2, R2_sem, 'o-', ...
             'color', rcolors{rIdx}, 'MarkerFaceColor', rcolors{rIdx}, ...
             'linewidth', 1.5);
         predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
-            legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
+        legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
     end
+    
+    % Plot leave-group-out R^2
+    R2 = nan(1,numModels);
+    R2_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        R2(modelIdx) = res(modelIdx).R2.joint;
+        R2_sem(modelIdx) = res(modelIdx).R2_sem.joint;
+    end
+    legendEntries(end+1) = errorbar(xDim, R2, R2_sem, 'o-', ...
+        'color', colors.blues{4}, 'MarkerFaceColor', colors.blues{4}, ...
+        'linewidth', 1.5);
+    legendLabels{end+1} = sprintf('Joint');
     legend(legendEntries, legendLabels, 'Location', 'southeast');
     hold off;
     
@@ -130,8 +155,8 @@ if plotMSE
         MSE = nan(1,numModels);
         MSE_sem = nan(1,numModels);
         for modelIdx = 1:numModels
-            MSE(modelIdx) = res(modelIdx).MSE(rIdx);
-            MSE_sem(modelIdx) = res(modelIdx).MSE_sem(rIdx);
+            MSE(modelIdx) = res(modelIdx).MSE.indiv(rIdx);
+            MSE_sem(modelIdx) = res(modelIdx).MSE_sem.indiv(rIdx);
         end
         legendEntries(end+1) = errorbar(xDim, MSE, MSE_sem, 'o-', ...
             'color', rcolors{rIdx}, 'MarkerFaceColor', rcolors{rIdx}, ...
@@ -139,6 +164,18 @@ if plotMSE
         predGroup = setdiff(res(1).rGroups, res(1).rGroups(rIdx));
             legendLabels{end+1} = sprintf('Predicting group %01d', predGroup);
     end
+    
+    % Plot leave-group-out MSE
+    MSE = nan(1,numModels);
+    MSE_sem = nan(1,numModels);
+    for modelIdx = 1:numModels
+        MSE(modelIdx) = res(modelIdx).MSE.joint;
+        MSE_sem(modelIdx) = res(modelIdx).MSE_sem.joint;
+    end
+    legendEntries(end+1) = errorbar(xDim, MSE, MSE_sem, 'o-', ...
+        'color', colors.blues{4}, 'MarkerFaceColor', colors.blues{4}, ...
+        'linewidth', 1.5);
+    legendLabels{end+1} = sprintf('Joint');
     legend(legendEntries, legendLabels, 'Location', 'northeast');
     hold off;
 end

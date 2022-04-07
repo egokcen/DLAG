@@ -4,7 +4,7 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 %
 % Description: Project the latent trajectories inferred by a DLAG
 %              model onto correlative modes, which capture the maximal 
-%              0-lag correlation between a pair of groups.
+%              (0-lag) correlation between a pair of groups.
 %
 % Arguments:
 %
@@ -52,6 +52,8 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 %                  (default: [1 2])
 %     orth      -- logical; If true, project onto an orthogonal (as opposed
 %                  to uncorrelated) basis. (default: false)
+%     zerolag   -- logical; set true to compute zero-lag modes, false
+%                  to compute modes that factor in delays (default: true)
 %
 % Outputs:
 %
@@ -69,9 +71,11 @@ function seq = correlativeProjection_dlag(seq, params, varargin)
 %     17 Mar 2021 -- Initial full revision.
 %     28 Apr 2021 -- Added exception handling for xDim_across = 0 case.
 %     20 Oct 2021 -- Updated documentation to clarify group order in xcorr.
+%     06 Apr 2022 -- Added zerolag option.
 
 groupIdxs = [1 2];
 orth = false;
+zerolag = true;
 assignopts(who,varargin);
 
 % Constants
@@ -92,7 +96,7 @@ if xDim_across <= 0
 end
 
 % Compute correlative modes
-[~, U, V, ~] = correlativeModes_dlag(params, 'groupIdxs', groupIdxs);
+[~, U, V, ~] = correlativeModes_dlag(params, 'groupIdxs', groupIdxs, 'zerolag', zerolag);
 
 % Get across-group loading matrices
 groupParams = partitionParams_dlag(params);

@@ -191,8 +191,13 @@ else
     D             = trackedParams.D;           % Estimated delays each iteration
     gams_across   = trackedParams.gams_across; % Estimated across-group timescales each iteration
     gams_within   = trackedParams.gams_within; % Estimated within-group timescales each iteration
-    deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
-    deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
+    if xDim_across > 0
+        deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
+        deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
+    else
+        deltaD_i = NaN;
+        deltaGam_across_i = NaN;
+    end
     startIter = length(LL) + 1; % Initial value for EM loop index
 end
 
