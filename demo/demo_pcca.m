@@ -1,6 +1,6 @@
-% =========
-% pCCA DEMO
-% =========
+% =======================================================
+% pCCA DEMO: Run this script from the main DLAG directory
+% =======================================================
 %
 % This demo shows how we can extract latent variables from multi-population
 % data with static methods like pCCA. It's recommended to run this script
@@ -27,20 +27,20 @@
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Last Revised:
-%     26 Feb 2022
+%     13 Nov 2024
 
-%% ==================
+%% =================
 % 0a) Load demo data
-% ======================
+% ==================
 
 % Synthetic data generated from a pCCA model
-dat_file = 'mat_sample/pcca_demo_data_synthetic';
+dat_file = 'demo/data/pcca_demo_data';
 fprintf('Reading from %s \n',dat_file);
 load(dat_file);
 
-%% =======================
+%% =========================
 % 0b) Set up parallelization
-% ===========================
+% ==========================
 
 % If parallelize is true, all cross-validation folds will be analyzed in 
 % parallel using Matlab's parfor construct. If you have access to multiple 
@@ -48,7 +48,7 @@ load(dat_file);
 parallelize = false;
 numWorkers = 2;      % Adjust this to your computer's specs
 
-%% =====================
+%% =======================
 % 1a) Fitting a pCCA model
 % ========================
 
@@ -56,7 +56,7 @@ numWorkers = 2;      % Adjust this to your computer's specs
 % the sake of demonstration:
 runIdx = 3;           % Results will be saved in baseDir/mat_results/runXXX/, where
                       % XXX is runIdx. Use a new runIdx for each dataset.
-baseDir = '.';        % Base directory where results will be saved
+baseDir = './demo';   % Base directory where results will be saved
 overwriteExisting = true; % Control whether existing results files are overwritten
 saveData = false;     % Set to true to save train and test data (not recommended)
 method = 'pcca';      % Specify static method used (only pCCA, for now)
@@ -82,15 +82,15 @@ fit_pcca(runIdx, Ytrain, ...
          'overwriteExisting', overwriteExisting, ...
          'saveData', saveData);
 
-%% =====================================
+%% ========================================
 % 1b) Explore extracted latent trajectories
-% ==========================================
+% =========================================
 
 % Retrieve the fitted model of interest
 res = getModel_pcca(runIdx, xDim, 'baseDir', baseDir);
 
 % Convert data in seq format to format compatible with pCCA functions
-Ys_test = seq2pcca(Ytest, res.yDims, 'datafield', 'y');
+Ys_test = seq2cell2D(Ytest, res.yDims, 'datafield', 'y');
 % Infer unordered latents
 [Xinferred, ~] = pcca_estep(Ys_test, res.estParams);
 % Convert inferred latents back into seq format
@@ -151,9 +151,9 @@ plotDimsVsTime(Ytest, xspec, binWidth, ...
                'plotMean', true, ...
                'units', 'ms');
 
-%% ==========================
+%% ============================
 % 2) Cross-validate pCCA models
-%  =============================
+%  ============================
 
 % Change other input arguments as appropriate
 runIdx = 4;

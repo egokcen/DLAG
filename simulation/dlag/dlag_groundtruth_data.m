@@ -6,53 +6,62 @@
 %
 % Author: 
 %     Evren Gokcen    egokcen@cmu.edu
-% 
-% Revision history:
-%     07 Apr 2020 -- Initial full revision.
-%     14 May 2020 -- Updated to remain compatible with 'dat' argument
-%                    format in fit_dlag.m
-%     14 Oct 2020 -- Updated to reflect changes to simdata_dlag.m
-%     18 Mar 2021 -- Updated to reflect changes to simdata_dlag.m
 
 %% Define DLAG ground truth model parameters
 
 rng('shuffle');
 
 % Dataset size characteristics
-N = 100;                            % Number of sequences (trials)
-T = 25;                             % Number of samples per sequence
-binWidth = 20;                      % Sample period of ground truth data
-yDims = [10 10];                    % Dimensionalities of each observed group
-numGroups = length(yDims);          % Total number of groups
-xDim_across = 4;                    % Across-group latent dimensionality
-xDim_within = [2 2];                % Within-group latent dimensionalities
-snr = [1.0 1.0];                    % Signal-to-noise ratios of each group
+N = 100;                          % Number of sequences (trials)
+T = 25;                           % Number of samples per sequence
+binWidth = 20;                    % Sample period of ground truth data
+yDims = [10 10];                  % Dimensionalities of each observed group
+numGroups = length(yDims);        % Total number of groups
+xDim_across = 4;                  % Across-group latent dimensionality
+xDim_within = [2 2];              % Within-group latent dimensionalities
+snr = [1.0 1.0];                  % Signal-to-noise ratios of each group
+covType = 'rbf';                  % Specify GP covariance type
 
 % GP Timescales
-tau_lim = [10 150];                 % GP timescale range
+param_lims.tau_lim = [20 150];     % GP timescale range
 
 % GP noise variances                
-eps_lim = [1e-3 1e-3];              % GP noise range
+param_lims.eps_lim = [1e-5 1e-5];  % GP noise range
 
 % Delays
-delay_lim = [-30 30];               % Delay range, in samples
+param_lims.delay_lim = [-30 30];   % Delay range, in samples
+
+% Center frequencies
+param_lims.nu_lim = [0 10]./1000;  % Center frequency range, in 1/ms (to
+                                   % match units of delays and timescales)
 
 %% Randomly generate data from a DLAG model
 
 [seqTrue, trueParams] = simdata_dlag(N, T, binWidth, yDims, ...
-                                xDim_across, xDim_within, snr, ...
-                                tau_lim, eps_lim, delay_lim);                        
+                                     xDim_across, xDim_within, snr, ...
+                                     covType, param_lims);   
+
 % Add relevant notes to trueParams                        
 trueParams.notes.RforceDiagonal = true;
 trueParams.notes.learnKernelParams = true;
 trueParams.notes.learnGPNoise = false;
 
-% Investigate generated GP parameters
+%% Visualize the ground truth
+
+% GP parameters
 plotGPparams_dlag(trueParams, binWidth, [1 2], ...
                   'plotAcross', true, ...
                   'plotWithin', true, ...
                   'units', 'ms');
 
+% Latent timecourses
+plotDimsVsTime_dlag(seqTrue, 'xsm', trueParams, binWidth, ...
+                   'nPlotMax', 1, ...
+                   'plotSingle', false, ...
+                   'plotMean', true, ...
+                   'units', 'ms');
+                    
 %% Save generated data, along with ground truth parameters
-save('mat_sample/dlag_demo_data_synthetic.mat', 'seqTrue', 'trueParams', ...
+
+save('demo/data/dlag-freq_demo_data.mat', 'seqTrue', 'trueParams', ...
      'snr', 'binWidth');

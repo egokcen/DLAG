@@ -1,5 +1,5 @@
 function params = generate_params_dlag(yDims, xDim_across, xDim_within, ...
-    binWidth, snr, tau_lim, eps_lim, delay_lim)
+    binWidth, snr, covType, param_lims)
 % params = generate_params_dlag(...)
 %
 % Description: Randomly generate DLAG model parameters, within 
@@ -19,10 +19,20 @@ function params = generate_params_dlag(yDims, xDim_across, xDim_within, ...
 %                    (in units of time). Assume uniform sampling.
 %     snr         -- (1 x numGroups) array; List of signal-to-noise ratios,
 %                    defined as trace(CC') / trace(R)
-%     tau_lim   -- (1 x 2) array; lower- and upper-bounds of GP timescales
-%     eps_lim   -- (1 x 2) array; lower- and upper-bounds of GP noise variances
-%     delay_lim -- (1 x 2) array; lower- and upper-bounds of delays, in
-%                  units of time
+%     covType  -- string; Specify type of covariance function to be used.
+%                 Supported options:
+%                     'rbf' -- Radial basis or squared exponential function
+%                     'sg'  -- Spectral Gaussian or Gauss-cosine function
+%     param_lims -- structure with fields that depend on the covType:
+%         tau_lim   -- (1 x 2) array; lower- and upper-bounds of GP 
+%                      timescales (for covTypes 'rbf' and 'sg')
+%         eps_lim   -- (1 x 2) array; lower- and upper-bounds of GP noise 
+%                      variances (for covTypes 'rbf' and 'sg')
+%         delay_lim -- (1 x 2) array; lower- and upper-bounds of delays, in
+%                      units of time (for covTypes 'rbf' and 'sg')
+%         nu_lim    -- (1 x 2) array; lower- and upper-bounds of center
+%                      frequencies, in units of 1/time (same units as
+%                      delays and timescales) (for covType 'sg')
 %
 % Outputs:
 %     params  -- Structure containing DLAG model parameters.
@@ -37,6 +47,13 @@ function params = generate_params_dlag(yDims, xDim_across, xDim_within, ...
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -59,52 +76,75 @@ function params = generate_params_dlag(yDims, xDim_across, xDim_within, ...
 % 
 % Revision history:
 %     08 Jan 2021 -- Initial full revision.
+%     18 Feb 2023 -- Added spectral Gaussian compatibility.
 
     % Constants
     numGroups = length(yDims);
     centered = false; % Allow for a non-zero mean parameter
     
     % Start filling in some basic fields in the output structure
-    params.covType = 'rbf';
+    params.covType = covType;
     params.xDim_across = xDim_across;
     params.xDim_within = xDim_within;
     params.yDims = yDims;
     
     % Generate GP parameters
-    min_tau = tau_lim(1);
-    max_tau = tau_lim(2);
-    min_eps = eps_lim(1);
-    max_eps = eps_lim(2);
-    min_delay = delay_lim(1);
-    max_delay = delay_lim(2);
-
-    % Across-group timescales and noise variances
+    min_tau = param_lims.tau_lim(1);
+    max_tau = param_lims.tau_lim(2);
+    min_eps = param_lims.eps_lim(1);
+    max_eps = param_lims.eps_lim(2);
+    min_delay = param_lims.delay_lim(1);
+    max_delay = param_lims.delay_lim(2);
+    switch covType
+        case 'sg'
+            min_nu = param_lims.nu_lim(1);
+            max_nu = param_lims.nu_lim(2);
+    end
+    % Across-group parameters
     taus_across = [];
     eps_across = [];
+    nu_across = [];
     if xDim_across > 0
-        % If xDim_across is 0, keep taus and eps empty
+        % If xDim_across is 0, keep params empty
         taus_across = min_tau + (max_tau-min_tau).*rand(1,xDim_across); 
         % Deal with noise variances on a log scale
         eps_across = exp(log(min_eps) + (log(max_eps)- log(min_eps)).*(rand(1,xDim_across)));
+        switch covType
+            case 'sg'
+                nu_across = min_nu + (max_nu-min_nu).*rand(1,xDim_across); 
+        end
     end
     % Fill in output structure
     params.gamma_across = (binWidth ./ taus_across).^2;
     params.eps_across = eps_across;
+    switch covType
+        case 'sg'
+            params.nu_across = nu_across .* binWidth;     
+    end
 
     % Within-group timescales and noise variances
     taus_within = cell(1,numGroups);
     eps_within = cell(1,numGroups);
+    nu_within = cell(1,numGroups);
     for groupIdx = 1:numGroups
-        % If xDim_within(groupIdx) is 0, keep taus and eps empty
+        % If xDim_within(groupIdx) is 0, keep params empty
         if xDim_within(groupIdx) > 0
             taus_within{groupIdx} = min_tau + (max_tau-min_tau).*rand(1,xDim_within(groupIdx));
             eps_within{groupIdx} = exp(log(min_eps) + (log(max_eps)- log(min_eps)).*(rand(1,xDim_within(groupIdx))));
+            switch covType
+                case 'sg'
+                    nu_within{groupIdx} = min_nu + (max_nu-min_nu).*rand(1,xDim_within(groupIdx)); 
+            end
         end
     end
     % Fill in output structure
     for groupIdx = 1:numGroups
         params.gamma_within{groupIdx} = (binWidth ./ taus_within{groupIdx}).^2;
         params.eps_within{groupIdx} = eps_within{groupIdx};
+        switch covType
+            case 'sg'
+                params.nu_within{groupIdx} = nu_within{groupIdx} .* binWidth;
+        end
     end
 
     % Delays

@@ -4,9 +4,6 @@ function result = call_dlag_engine(fname,seqTrain,seqTest,varargin)
 %
 % Description: Interfaces with DLAG Engines, which do the heavy lifting for
 %              learning and inference.
-%              NOTE: For now, only dlagEngine is supported in this
-%                    function, but it is structured to handle multiple new
-%                    versions in the future.
 %
 % Arguments:
 %
@@ -26,8 +23,8 @@ function result = call_dlag_engine(fname,seqTrain,seqTest,varargin)
 %                     y (yDim x T) -- neural data
 %     Optional:
 %
-%     method   -- string; method to be used (currently one supported):
-%                 'dlag'. (default: 'dlag')
+%     method   -- string; method to be used : 'dlag' or 'dlag-freq'. 
+%                 (default: 'dlag')
 %     binWidth -- float; bin width or sample period, in units of time
 %                 (default: 20)
 %     cvf      -- int; indicates which cross-validation fold input data
@@ -57,6 +54,7 @@ function result = call_dlag_engine(fname,seqTrain,seqTest,varargin)
 %     07 May 2020 -- Save random number generator settings.
 %     13 May 2020 -- Removed hasSpikesBool functionality.
 %     24 May 2020 -- Printed info about fitted model moved to fit_dlag.m
+%     18 Jul 2023 -- Added frequency domain fitting option.
 
 method        = 'dlag';
 binWidth      = 20; % in msec
@@ -85,6 +83,12 @@ if isequal(method,'dlag')
     dlagEngine(seqTrain, seqTest, fname,...
         'xDim_across', xDim_across, 'xDim_within', xDim_within, ...
         'binWidth', binWidth, extraOpts{:});
+    
+elseif isequal(method,'dlag-freq')
+    dlagEngine_freq(seqTrain, seqTest, fname,...
+        'xDim_across', xDim_across, 'xDim_within', xDim_within, ...
+        'binWidth', binWidth, extraOpts{:});
+
 end
 
 if exist([fname '.mat'], 'file')

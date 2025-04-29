@@ -63,7 +63,7 @@ extraOpts     = assignopts(who, varargin);
 % Reformat train data for fitting. Trial ID and location in time do not 
 % matter. Static methods treat all data points as independent and 
 % identically distributed.
-Ys_train = seq2pcca(seqTrain, yDims, 'datafield', 'y');
+Ys_train = seq2cell2D(seqTrain, yDims, 'datafield', 'y');
 
 % =====================
 % Fit model parameters
@@ -94,7 +94,7 @@ end
 % ==================================
 if ~isempty(seqTest)
     % Reformat test data, as was done for train data
-    Ys_test = seq2pcca(seqTest, yDims, 'datafield', 'y');
+    Ys_test = seq2cell2D(seqTest, yDims, 'datafield', 'y');
     
     if xDim == 0
         [LLtest, R2, MSE] = indepGroupEval(Ys_test, estParams, rGroups);

@@ -1,5 +1,5 @@
 function [seq, params] = simdata_dlag(N, T, binWidth, yDims, ...
-    xDim_across, xDim_within, snr, tau_lim, eps_lim, delay_lim, varargin)
+    xDim_across, xDim_within, snr, covType, param_lims, varargin)
 % [seq, params] = simdata_dlag(...)
 %
 % Description: Randomly generate DLAG model parameters, within specified
@@ -21,10 +21,20 @@ function [seq, params] = simdata_dlag(N, T, binWidth, yDims, ...
 %                    for each group. 
 %     snr      -- (1 x numGroups) array; List of signal-to-noise ratios,
 %                 defined as trace(CC') / trace(R)
-%     tau_lim   -- (1 x 2) array; lower- and upper-bounds of GP timescales
-%     eps_lim   -- (1 x 2) array; lower- and upper-bounds of GP noise variances
-%     delay_lim -- (1 x 2) array; lower- and upper-bounds of delays, in
-%                  units of time
+%     covType  -- string; Specify type of covariance function to be used.
+%                 Supported options:
+%                     'rbf' -- Radial basis or squared exponential function
+%                     'sg'  -- Spectral Gaussian or Gauss-cosine function
+%     param_lims -- structure with fields that depend on the covType:
+%         tau_lim   -- (1 x 2) array; lower- and upper-bounds of GP 
+%                      timescales (for covTypes 'rbf' and 'sg')
+%         eps_lim   -- (1 x 2) array; lower- and upper-bounds of GP noise 
+%                      variances (for covTypes 'rbf' and 'sg')
+%         delay_lim -- (1 x 2) array; lower- and upper-bounds of delays, in
+%                      units of time (for covTypes 'rbf' and 'sg')
+%         nu_lim    -- (1 x 2) array; lower- and upper-bounds of center
+%                      frequencies, in units of 1/time (same units as
+%                      delays and timescales) (for covType 'sg')
 %
 %     Optional:
 %
@@ -53,6 +63,13 @@ function [seq, params] = simdata_dlag(N, T, binWidth, yDims, ...
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across.*binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -80,14 +97,15 @@ function [seq, params] = simdata_dlag(N, T, binWidth, yDims, ...
 %     14 Oct 2020 -- Added option to manually specify GP parameters
 %     09 Jan 2021 -- Overhauled to utilize more modularized / elegant
 %                    subroutines
+%     18 Feb 2023 -- Added spectral Gaussian compatibility.
 
 latentfield = 'xsm';
 obsfield = 'y';
-extraOpts = assignopts(who, varargin);
+assignopts(who, varargin);
 
 % Generate DLAG model parameters
 params = generate_params_dlag(yDims, xDim_across, xDim_within, binWidth, ...
-                              snr, tau_lim, eps_lim, delay_lim);
+                              snr, covType, param_lims);
 
 % Generate latent sequences
 seq = generate_latents_dlag(params, T, N, 'latentfield', latentfield);

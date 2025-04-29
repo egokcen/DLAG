@@ -18,6 +18,13 @@ function outparams = getSubsetParams_dlag(inparams, xDims_across, xDims_within)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -50,6 +57,7 @@ function outparams = getSubsetParams_dlag(inparams, xDims_across, xDims_within)
 %
 % Revision history:
 %     14 May 2020 -- Initial full revision.
+%     22 Feb 2023 -- Added spectral Gaussian compatibility.
 
 yDims = inparams.yDims;
 numGroups = length(yDims);
@@ -65,9 +73,15 @@ end
 outparams.gamma_across = outparams.gamma_across(xDims_across);
 outparams.eps_across = outparams.eps_across(xDims_across);
 outparams.DelayMatrix = outparams.DelayMatrix(:,xDims_across);
+if isequal(outparams.covType,'sg')
+    outparams.nu_across = outparams.nu_across(xDims_across); 
+end
 for groupIdx = 1:numGroups
     outparams.gamma_within{groupIdx} = outparams.gamma_within{groupIdx}(xDims_within{groupIdx});
     outparams.eps_within{groupIdx} = outparams.eps_within{groupIdx}(xDims_within{groupIdx});
+    if isequal(outparams.covType,'sg')
+        outparams.nu_within{groupIdx} = outparams.nu_within{groupIdx}(xDims_within{groupIdx}); 
+    end
 end
 
 % Loading matrix

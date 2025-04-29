@@ -24,6 +24,10 @@ function [res] = learnGPparams_plusDelays(seq, params, varargin)
 %               gamma   -- (1 x xDim) array; GP timescales
 %                          in ms are given by 'stepSize ./ sqrt(gamma)'                                                    
 %               eps     -- (1 x xDim) GP noise variances
+%               if covType == 'sg'
+%                   nu -- (1 x xDim) array; center frequencies for spectral
+%                         Gaussians; convert to 1/time via 
+%                         nu_across./binWidth
 %               d            -- (yDim x 1) array; observation mean
 %               C            -- (yDim x (numGroups*xDim)) array;
 %                               mapping between low- and high-d spaces
@@ -48,16 +52,16 @@ function [res] = learnGPparams_plusDelays(seq, params, varargin)
 %
 % Outputs:
 %
-%     res -- Structure containing the updated GP state model parameters:
-%            gamma, DelayMatrix. Also includes the number of iterations and
-%            value of the cost function after updating these parameters via
-%            gradient descent.
+%     res -- Structure containing the updated GP state model parameters.
+%            Also includes the number of iterations and value of the cost 
+%            function after updating these parameters via gradient descent.
 %
 % Authors:
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Revision history:
 %     18 Mar 2020 -- Initial full revision. 
+%     19 Feb 2023 -- Added spectral Gaussian compatibility.
 
 MAXITERS  = -10; % for minimize.m
 verbose   = false;
@@ -72,8 +76,12 @@ switch params.covType
         % If there's more than one type of parameter, put them in the
         % second row of oldParams.
         oldParams = [params.gamma; params.DelayMatrix];
-        fname     = 'grad_betgam_delay';
-    % Optional: Insert other covariance functions here    
+        fname     = 'grad_rbf_delay';
+    case 'sg'
+        % If there's more than one type of parameter, put them in the
+        % second row of oldParams.
+        oldParams = [params.gamma; params.DelayMatrix; params.nu];
+        fname     = 'grad_sg_delay';
 end
 
 precomp = makePrecomp_timescales(seq,params);
@@ -81,6 +89,7 @@ precomp = makePrecomp_timescales(seq,params);
 % Loop once for each state dimension (each GP)
 gamma = zeros(1,xDim);
 DelayMatrix = zeros(numGroups, xDim);
+nu = zeros(1,xDim);
 for i = 1:xDim
     const = [];
     
@@ -89,13 +98,22 @@ for i = 1:xDim
     end
     
     switch fname                
-        case 'grad_betgam_delay'
+        case 'grad_rbf_delay'
             % Change of variables for constrained optimization
             init_gam = log(oldParams(1,i));
             % We don't include delays to the first group in the optimization
             init_delay = reshape(oldParams(3:end,i), numGroups-1, 1);
             init_delay = -log(2*params.maxDelay./(init_delay + params.maxDelay) - 1);
             init_p = [init_gam; init_delay];
+            
+        case 'grad_sg_delay'
+            % Change of variables for constrained optimization
+            init_gam = log(oldParams(1,i));
+            % We don't include delays to the first group in the optimization
+            init_delay = reshape(oldParams(3:(end-1),i), numGroups-1, 1);
+            init_delay = -log(2*params.maxDelay./(init_delay + params.maxDelay) - 1);
+            init_nu = oldParams(end,i);
+            init_p = [init_gam; init_delay; init_nu];
     end   
     
     % This does the heavy lifting
@@ -105,10 +123,15 @@ for i = 1:xDim
     switch params.covType
         case 'rbf'
             switch fname                
-                case 'grad_betgam_delay'
+                case 'grad_rbf_delay'
                     gamma(i) = exp(res_p(1));
                     DelayMatrix(2:end,i) = 2*params.maxDelay./(1+exp(-res_p(2:end))) - params.maxDelay;
-            end        
+            end      
+            
+        case 'sg'               
+            gamma(i) = exp(res_p(1));
+            DelayMatrix(2:end,i) = 2*params.maxDelay./(1+exp(-res_p((1:numGroups-1)+1))) - params.maxDelay;
+            nu(i) = res_p(end);
     end    
     
     if verbose
@@ -118,6 +141,9 @@ end
 
 res.DelayMatrix = DelayMatrix;
 res.gamma = gamma;
+if isequal(params.covType, 'sg')
+    res.nu = nu; 
+end
 res.res_iters = res_iters; % Number of optimization iterations
 res.fX = fX;               % Value of optimization objective function
 

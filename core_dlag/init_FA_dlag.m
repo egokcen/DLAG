@@ -36,11 +36,15 @@ function startParams = init_FA_dlag(seqTrain,varargin)
 %                     latents reach a particular group after the same
 %                     specified delay. Different groups can have different
 %                     delays. Entries in units of time. (default: [])
+%     startNu      -- float; Initial GP center frequency (for spectral
+%                     Gaussian kernels only), in units of 1/time (same
+%                     time units as binWidth) (default: 1/(10*binWidth))
 %     covType      -- string; Specify GP covariance kernel type. Options
 %                     currently supported:
 %                         'rbf' -- Radial basis function, or squared
 %                                  exponential kernel
-%                     (default: 'rbf')
+%                         'sg'  -- spectral Gaussian, or Gauss-cosine
+%                                  kernel
 %     parallelize  -- logical; Set to true to use Matlab's parfor construct
 %                     to parallelize each fold and latent dimensionality 
 %                     using multiple cores. (default: false)
@@ -58,6 +62,13 @@ function startParams = init_FA_dlag(seqTrain,varargin)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -80,6 +91,7 @@ function startParams = init_FA_dlag(seqTrain,varargin)
 %
 % Revision history:
 %     27 Jun 2020 -- Initial full revision.   
+%     19 Feb 2023 -- Added spectral Gaussian compatibility
 
 xDim_across   = 0;
 xDim_within   = [];
@@ -88,6 +100,7 @@ binWidth      = 20;         % in units of time
 startTau      = 2*binWidth; % in units of time
 startDelay    = [];         % in units of time
 startEps      = 1e-3;
+startNu       = 1/(10*binWidth);
 covType       = 'rbf';
 parallelize   = false;
 extraOpts     = assignopts(who, varargin);
@@ -99,7 +112,7 @@ xDim          = xDim_across + xDim_within;
 % ========================================
 
 % Convert data into format compatible with static methods
-Ys = seq2pcca(seqTrain, yDims, 'datafield', 'y');
+Ys = seq2cell2D(seqTrain, yDims, 'datafield', 'y');
 % Fit independent FA models to each group
 Cs = cell(1,numGroups);
 Rs = cell(1,numGroups);
@@ -168,6 +181,22 @@ for groupIdx = 1:numGroups
     % Leave eps_within empty if xDim_within is 0
     if xDim_within(groupIdx) > 0
         startParams.eps_within{groupIdx} = startEps * ones(1, xDim_within(groupIdx));
+    end
+end
+
+% GP center frequency
+if isequal(covType, 'sg')
+    % Leave nu_across empty if xDim_across is 0
+    startParams.nu_across = [];
+    if xDim_across > 0
+        startParams.nu_across = startNu * binWidth * ones(1, xDim_across);
+    end
+    startParams.nu_within = cell(1,numGroups);
+    for groupIdx = 1:numGroups
+        % Leave nu_within empty if xDim_within is 0
+        if xDim_within(groupIdx) > 0
+            startParams.nu_within{groupIdx} = startNu * binWidth * ones(1, xDim_within(groupIdx));
+        end
     end
 end
 

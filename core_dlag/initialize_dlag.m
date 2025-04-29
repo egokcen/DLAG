@@ -70,6 +70,13 @@ function startParams = initialize_dlag(seqTrain,init_method,varargin)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces

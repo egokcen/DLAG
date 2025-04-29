@@ -1,12 +1,11 @@
-% =========
-% DLAG DEMO 
-% ========= 
+% =======================================================
+% DLAG DEMO: Run this script from the main DLAG directory
+% =======================================================
 %
 % This demo shows how we can extract latent variables from multi-population
-% data with DLAG (Gokcen et al., 2021). It's recommended to run this script
-% section-by-section, rather than all at once (or put a break point before
-% Sections 2 and 3, as they may take a long time, depending on your use
-% of parallelization).
+% data with DLAG. It's recommended to run this script section-by-section,
+% rather than all at once (or put a break point before Sections 2 and 3, as
+% they may take a long time, depending on your use of parallelization).
 %
 % Section 1 demonstrates how DLAG can be used for exploratory data 
 % analysis.
@@ -64,22 +63,19 @@
 %
 % Author: 
 %     Evren Gokcen    egokcen@cmu.edu
-%
-% Last Revised: 
-%     26 Feb 2022
 
-%% ================
+%% =================
 % 0a) Load demo data 
-% ===================
+% ==================
 
 % Synthetic data generated from a DLAG model
-dat_file = 'mat_sample/dlag_demo_data_synthetic';
+dat_file = 'demo/data/dlag_demo_data';
 fprintf('Reading from %s \n',dat_file);
 load(dat_file);
 
-%% =======================
+%% =========================
 % 0b) Set up parallelization
-% ===========================
+% ==========================
 
 % If parallelize is true, all cross-validation folds and bootstrap samples
 % will be analyzed in parallel using Matlab's parfor construct. 
@@ -87,7 +83,7 @@ load(dat_file);
 parallelize = false;
 numWorkers = 2;      % Adjust this to your computer's specs
 
-%% =====================
+%% =======================
 % 1a) Fitting a DLAG model
 % ========================
 
@@ -95,7 +91,7 @@ numWorkers = 2;      % Adjust this to your computer's specs
 % the sake of demonstration:
 runIdx = 1;               % Results will be saved in baseDir/mat_results/runXXX/,  
                           % where XXX is runIdx. Use a new runIdx for each dataset.
-baseDir = '.';            % Base directory where results will be saved
+baseDir = './demo';       % Base directory where results will be saved
 overwriteExisting = true; % Control whether existing results files are overwritten
 saveData = false;         % Set to true to save train and test data (not recommended)
 method = 'dlag';          % For now this is the only option, but that may change in the near future
@@ -104,17 +100,21 @@ numFolds = 0;             % Number of cross-validation folds (0 means no cross-v
 xDims_across = 4;         % This number of across-group latents matches the synthetic ground truth
 xDims_within = {2, 2};    % These numbers match the within-group latents in the synthetic ground truth
 yDims = [10 10];          % Number of observed features (neurons) in each group (area)
+covType = 'rbf';          % Type of GP covariance kernel ('rbf' or 'sg')
 rGroups = [1 2];          % For performance evaluation, we can regress group 2's activity with group 1
 startTau = 2*binWidth;    % Initial timescale, in the same units of time as binWidth
 segLength = 25;           % Largest trial segment length, in no. of time points
 init_method = 'static';   % Initialize DLAG with fitted pCCA parameters
 learnDelays = true;       % Set to false if you want to fix delays at their initial value
 maxIters = 5e3;           % Limit the number of EM iterations (not recommended for final fitting stage)
-freqLL = 10;              % Check for data log-likelihood convergence every freqLL EM iterations
-freqParam = 100;          % Store intermediate delay and timescale estimates every freqParam EM iterations
-minVarFrac = 0.01;        % Private noise variances will not be allowed to go below this value
+tolLL = 1e-8;             % Log-likelihood convergence tolerance
+freqLL = 1;               % Check for data log-likelihood convergence every freqLL EM iterations
+freqParam = 10;           % Store intermediate delay and timescale estimates every freqParam EM iterations
+minVarFrac = 0.001;       % Private noise variances will not be allowed to go below this value
 verbose = true;           % Toggle printed progress updates
 randomSeed = 0;           % Seed the random number generator, for reproducibility
+
+%% Fit the DLAG model
 
 fit_dlag(runIdx, seqTrue, ...
          'baseDir', baseDir, ...
@@ -124,12 +124,14 @@ fit_dlag(runIdx, seqTrue, ...
          'xDims_across', xDims_across, ...
          'xDims_within', xDims_within, ...
          'yDims', yDims, ...
+         'covType', covType, ...
          'rGroups', rGroups,...
          'startTau', startTau, ...
          'segLength', segLength, ...
          'init_method', init_method, ...
          'learnDelays', learnDelays, ...
          'maxIters', maxIters, ...
+         'tolLL', tolLL, ...
          'freqLL', freqLL, ...
          'freqParam', freqParam, ...
          'minVarFrac', minVarFrac, ...
@@ -139,9 +141,9 @@ fit_dlag(runIdx, seqTrue, ...
          'overwriteExisting', overwriteExisting, ...
          'saveData', saveData);
 
-%% =========================================================
+%% ==============================================================
 % 1b) Explore estimated GP parameters and compare to ground truth
-% ================================================================
+% ===============================================================
 
 % Retrieve the fitted model of interest
 xDim_across = 4;
@@ -181,7 +183,7 @@ plotGPparams_withGT_dlag(res.estParams, trueParams, res.binWidth,...
 [seqEst, ~] = exactInferenceWithLL_dlag(seqTrue, res.estParams);
 plotDimsVsTime_dlag(seqEst, 'xsm', res.estParams, res.binWidth, ...
                   'nPlotMax', 1, ...
-                  'plotSingle', true, ...
+                  'plotSingle', false, ...
                   'plotMean', true, ...
                   'units', []);
 
@@ -190,13 +192,17 @@ plotDimsVsTime_dlag(seqEst, 'xsm', res.estParams, res.binWidth, ...
 % match estimated latent 1 to ground truth latent 1, and so on.
 plotDimsVsTime_dlag(seqTrue, 'xsm', trueParams, res.binWidth, ...
                   'nPlotMax', 1, ...
-                  'plotSingle', true, ...
+                  'plotSingle', false, ...
                   'plotMean', true, ...
                   'units', []);
               
-%% ====================================================
+% Predictive performance
+[R2, ~] = pred_dlag(seqTrue, res.estParams);
+fprintf('\nLeave-group-out R^2:    %f\n', R2);
+
+%% ========================================================
 % 1c) Visually scale latent trajectories by various metrics
-% ==========================================================
+% =========================================================
 
 % Scale by variance explained
 total = false; % true: denominator is total variance; else shared variance
@@ -237,9 +243,9 @@ plotDimsVsTime_dlag(seqEst, 'xce', sortParams, res.binWidth, ...
                   'plotMean', false, ...
                   'units', []);
 
-%% ============================================
+%% ================================================
 % 1d) Project latents onto different types of modes
-% ==================================================  
+% =================================================
 
 % Project latents onto dominant modes
 seqEst = dominantProjection_dlag(seqEst, res.estParams, ...
@@ -298,9 +304,9 @@ plotTraj(seqEst, xspec, ...
 cutoffPC = 0.95;
 d_shared = findSharedDimCutoff_dlag(res.estParams, cutoffPC, 'plotSpec', true)
 
-%% =======================================
+%% ==========================================
 % 1e) Denoise observations using a DLAG model
-% ============================================
+% ===========================================
 
 % Denoise observations
 [seqEst, ~, ~, ~, ~, ~] = denoise_dlag(seqEst, res.estParams);
@@ -335,10 +341,10 @@ xlabel('Time (ms)');
 ylabel('Neurons');
 title(sprintf('PSTHs, denoised'));
                                         
-%% ===========================================================
+%% ============================================================
 % 2a) Cross-validate FA models to estimate total dimensionality 
 %     (across+within) in each group.
-%  =================================================================
+%  ============================================================
 
 % Change other input arguments as appropriate
 runIdx = 2;
@@ -371,10 +377,10 @@ for groupIdx = 1:numGroups
     xDim_total_fa(groupIdx) = cvResults{groupIdx}(bestModels(groupIdx)).xDim;
 end
 
-%% ================================================================
+%% ===============================================================
 % 2b) Cross-validate DLAG models whose within- and across-group
 %     dimensionalities are constrained to sum to the FA estimates.
-%  ======================================================================
+%  ===============================================================
 
 % Change other input arguments as appropriate
 runIdx = 2;
@@ -391,12 +397,14 @@ fit_dlag(runIdx, seqTrue, ...
          'fitAll', fitAll, ...
          'xDims_grid', xDims_grid, ...
          'yDims', yDims, ...
+         'covType', covType, ...
          'rGroups', rGroups,...
          'startTau', startTau, ...
          'segLength', segLength, ...
          'init_method', init_method, ...
          'learnDelays', learnDelays, ...
          'maxIters', maxIters, ...
+         'tolLL', tolLL, ...
          'freqLL', freqLL, ...
          'freqParam', freqParam, ...
          'minVarFrac', minVarFrac, ...
@@ -416,10 +424,10 @@ plotPerfvsDim_dlag(cvResults, 'xDims_grid', xDims_grid);
 % Select the model with the optimal number among candidates
 bestModel = getNumAcrossDim_dlag(cvResults, xDims_grid);
 
-%% ===============================================================
-% 2d) Fully train the optimal model selected in Section 2c, assuming EM 
+%% ====================================================================
+% 2c) Fully train the optimal model selected in Section 2b, assuming EM 
 %     iterations were limited during cross-validation.
-% ======================================================================
+% =====================================================================
 
 % Change input arguments as appropriate
 numFolds = 0;
@@ -435,12 +443,14 @@ fit_dlag(runIdx, seqTrue, ...
          'xDims_across', xDims_across, ...
          'xDims_within', xDims_within, ...
          'yDims', yDims, ...
+         'covType', covType, ...
          'rGroups', rGroups,...
          'startTau', startTau, ...
          'segLength', segLength, ...
          'init_method', init_method, ...
          'learnDelays', learnDelays, ...
          'maxIters', maxIters, ...
+         'tolLL', tolLL, ...
          'freqLL', freqLL, ...
          'freqParam', freqParam, ...
          'minVarFrac', minVarFrac, ...
@@ -450,10 +460,10 @@ fit_dlag(runIdx, seqTrue, ...
          'overwriteExisting', overwriteExisting, ...
          'saveData', saveData);                
 
-%% ==========================================================
+%% =============================================================
 % 3a) Evaluate how significantly each set of across-group delays
 %     deviates from zero.
-%  ================================================================
+%  =============================================================
 
 % Retrieve the best DLAG model
 xDim_across = bestModel.xDim_across;
@@ -486,7 +496,7 @@ plotGPparams_dlag(res.estParams, binWidth, rGroups, ...
                   'sig', delaySig, ...
                   'alpha', alpha);
 
-%% ==========================================================
+%% ================================================================
 % 3b) Construct bootstrapped confidence intervals for latent delays
 %     and timescales.
 %  ================================================================

@@ -20,6 +20,13 @@ function Ka = getZeroLagK_across(params, varargin)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -66,5 +73,8 @@ params_pair.DelayMatrix = params.DelayMatrix(groupIdxs,:);
 params_pair.gamma = params.gamma_across;
 params_pair.eps = params.eps_across;
 params_pair.covType = params.covType;
+if isequal(params.covType, 'sg')
+    params_pair.nu = params.nu_across; 
+end
 K_big = make_K_big_plusDelays(params_pair,1);
 Ka = K_big(1:xDim_across, xDim_across+1:end);

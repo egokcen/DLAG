@@ -1,7 +1,8 @@
-function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ...
+function [estParams,seq,LL,iterTime,D,gams_across,gams_within,nus_across,nus_within,err_status,msg] ...
           = em_dlag(currentParams,seq,varargin)
 %
-% [estParams,seq,LL,iterTime,D,gams_across,gams_within] = em_dlag(currentParams,seq,...)
+% [estParams,seq,LL,iterTime,D,gams_across,gams_within,nus_across,nus_within,err_status,msg] ...
+%     = em_dlag(currentParams,seq,...)
 %
 % Description: Fit DLAG model parameters using the EM algorithm.
 %
@@ -20,6 +21,13 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -110,6 +118,12 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %                    gams_within(i) -- (1 x numIters) cell array; estimated
 %                                      gamma_within for group i after each 
 %                                      EM iteration.
+%     nus_across -- (1 x numIters) cell arry; estimated nu_across after
+%                    each EM iteration.
+%     nus_within -- (1 x numGroups) cell arry;
+%                    nu_within(i) -- (1 x numIters) cell array; estimated
+%                                      nu_within for group i after each 
+%                                      EM iteration.
 %     err_status -- int; 1 if data likelihood decreased during fitting. 0
 %                   otherwise.
 %     msg        -- string; A message indicating why fitting was stopped 
@@ -128,6 +142,7 @@ function [estParams,seq,LL,iterTime,D,gams_across,gams_within,err_status,msg] ..
 %                    the default is to not check this criterion).
 %     27 Jun 2020 -- Added 0-across-group dimension functionality
 %     18 Mar 2021 -- Cleaned up a depricated optional arg to learnGPparams.
+%     19 Feb 2023 -- Added spectral Gaussian compatibility.
            
 % Optional arguments
 maxIters      = 1e6;
@@ -180,6 +195,16 @@ if isempty(trackedParams)
     for groupIdx = 1:numGroups
         gams_within{groupIdx} = {currentParams.gamma_within{groupIdx}};
     end
+    % Within- and across-group center frequencies each iteration
+    if isequal(currentParams.covType, 'sg')
+        nus_across = {currentParams.nu_across};
+        for groupIdx = 1:numGroups
+            nus_within{groupIdx} = {currentParams.nu_within{groupIdx}};
+        end
+    else
+        nus_across = [];
+        nus_within = cell(1,numGroups);
+    end
     startIter = 1; % Initial value for EM loop index
 else
     % Start convergence tracking based on where a previous attempt left
@@ -191,6 +216,13 @@ else
     D             = trackedParams.D;           % Estimated delays each iteration
     gams_across   = trackedParams.gams_across; % Estimated across-group timescales each iteration
     gams_within   = trackedParams.gams_within; % Estimated within-group timescales each iteration
+    if isequal(currentParams.covType, 'sg')
+        nus_across   = trackedParams.nus_across; % Estimated across-group center frequencies each iteration
+        nus_within   = trackedParams.nus_within; % Estimated within-group center frequencies each iteration 
+    else
+        nus_across = [];
+        nus_within = cell(1,numGroups);
+    end
     if xDim_across > 0
         deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
         deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
@@ -252,6 +284,9 @@ for i =  startIter:maxIters
             tempParams.xDim = xDim_across;
             tempParams.gamma = currentParams.gamma_across;
             tempParams.eps = currentParams.eps_across;
+            if isequal(currentParams.covType, 'sg')
+                tempParams.nu = currentParams.nu_across; 
+            end
             % learnGPparams_pluDelays performs gradient descent to learn kernel
             % parameters WITH delays
             res = learnGPparams_plusDelays(seqAcross, tempParams, extra_opts{:});
@@ -274,6 +309,27 @@ for i =  startIter:maxIters
                         deltaD_i = NaN;
                         deltaGam_across_i = NaN;
                     end
+                    
+                case 'sg'
+                    currentParams.gamma_across = res.gamma; 
+                    currentParams.nu_across = abs(res.nu); % Keep center frequency positive, for interpretability
+                    if learnDelays
+                        % Only update delays if desired. Otherwise, they will
+                        % remain fixed at their initial value.
+                        currentParams.DelayMatrix = res.DelayMatrix;
+                    end
+                    if (rem(i, freqParam) == 0) || (i == maxIters)
+                        % Store current delays, timescales, and frequencies
+                        % and compute change since last computation
+                        D = [D {currentParams.DelayMatrix}];
+                        gams_across = [gams_across {currentParams.gamma_across}];
+                        nus_across = [nus_across {currentParams.nu_across}];
+                        deltaD_i = max(abs(D{end}(:) - D{end-1}(:)));
+                        deltaGam_across_i = max(abs(gams_across{end} - gams_across{end-1}));
+                    else
+                        deltaD_i = NaN;
+                        deltaGam_across_i = NaN;
+                    end
 
             end
 
@@ -290,6 +346,9 @@ for i =  startIter:maxIters
             if xDim_within(groupIdx) > 0
                 tempParams.gamma = currentParams.gamma_within{groupIdx};
                 tempParams.eps = currentParams.eps_within{groupIdx};
+                if isequal(currentParams.covType, 'sg')
+                    tempParams.nu = currentParams.nu_within{groupIdx}; 
+                end
                 % learnGPparams performs gradient descent to learn kernel
                 % parameters WITHOUT delays. 
                 % Reused from GPFA
@@ -302,6 +361,17 @@ for i =  startIter:maxIters
                             % We won't track the change since last computation
                             % for the within-group case, for now.
                             gams_within{groupIdx} = [gams_within{groupIdx} {res.gamma}];
+                        end
+                        
+                    case 'sg'
+                        currentParams.gamma_within{groupIdx} = res.gamma;
+                        currentParams.nu_within{groupIdx} = abs(res.nu); % Keep center frequency positive, for interpretability
+                        if (rem(i, freqParam) == 0) || (i == maxIters)
+                            % Store current timescales
+                            % We won't track the change since last computation
+                            % for the within-group case, for now.
+                            gams_within{groupIdx} = [gams_within{groupIdx} {res.gamma}];
+                            nus_within{groupIdx} = [nus_within{groupIdx} {res.nu}];
                         end
 
                 end

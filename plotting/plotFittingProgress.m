@@ -16,6 +16,8 @@ function plotFittingProgress(res, varargin)
 %               xDim_across -- int; number of across-group dimensions
 %               xDim_within -- (1 x numGroups) array; number of within-
 %                              group dimensions for each group  
+%               estParams   -- structure containing estimated DLAG model
+%                              parameters
 %               binWidth    -- float; bin width or sample period, in units 
 %                              of time (e.g., ms)
 %               iterTime    -- (1 x numIters) array; iterTime(i) contains
@@ -55,6 +57,7 @@ function plotFittingProgress(res, varargin)
 %     12 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
 %     28 Jun 2020 -- Added 0-across-group dimension functionality
+%     19 Feb 2023 -- Added spectral Gaussian compatibility
 
 freqLL = 1;
 freqParam = 1;
@@ -63,7 +66,8 @@ assignopts(who,varargin);
 
 % Format units for axis labels
 if ~isempty(units)
-    units = sprintf(' (%s)', units); 
+    timeUnits = sprintf(' (%s)', units); 
+    freqUnits = sprintf(' (1/%s)', units);
 end
 
 xDim_across = res.xDim_across;
@@ -71,6 +75,10 @@ xDim_within = res.xDim_within;
 binWidth = res.binWidth;
 numGroups = length(xDim_within);
 numPlot = 2 + 2*(xDim_across > 0) + sum(xDim_within > 0);
+if isequal(res.estParams.covType, 'sg')
+    % Account for extra parameter in spectral Gaussian kernel
+    numPlot = numPlot + (xDim_across > 0) + sum(xDim_within > 0); 
+end
 
 colors = generateColors(); % Get custom colors for plotting
 
@@ -81,7 +89,13 @@ plotIdx = 1;
 subplot(1,numPlot,plotIdx);
 hold on;
 LLcut = res.LLcut(~isnan(res.LLcut));
-plot([1 2 freqLL.*(1:length(LLcut)-2)], LLcut, 'color', colors.grays{1}, 'linewidth', 1.5);
+if freqLL > 2
+    plot([1 2 freqLL.*(1:length(LLcut)-2)], LLcut, 'color', colors.grays{1}, 'linewidth', 1.5);
+elseif freqLL == 2
+    plot([1 freqLL.*(1:length(LLcut)-1)], LLcut, 'color', colors.grays{1}, 'linewidth', 1.5);
+else
+    plot(LLcut, 'color', colors.grays{1}, 'linewidth', 1.5);
+end
 xlabel('# Iterations');
 ylabel('LL');
 
@@ -104,7 +118,7 @@ if xDim_across > 0
              'linewidth', 1.5);
     end
     xlabel('# Iterations');
-    ylabel(sprintf('Delay%s', units));
+    ylabel(sprintf('Delay%s', timeUnits));
 
     % Across-group GP timescale progress
     Gams = cat(3, res.gams_across{:});
@@ -117,7 +131,22 @@ if xDim_across > 0
              'linewidth', 1.5);
     end
     xlabel('# Iterations');
-    ylabel(sprintf('Across-group GP timescales%s', units));
+    ylabel(sprintf('Across-group GP timescales%s', timeUnits));
+    
+    if isequal(res.estParams.covType, 'sg')
+        % Across-group GP center frequency progress
+        Nus = cat(3, res.nus_across{:});
+        plotIdx = plotIdx + 1;
+        subplot(1,numPlot,plotIdx);
+        hold on;
+        for i = 1:xDim_across
+            plot(freqParam.*(0:length(res.nus_across)-1), ...
+                 squeeze(Nus(1,i,:))./binWidth, ...
+                 'linewidth', 1.5);
+        end
+        xlabel('# Iterations');
+        ylabel(sprintf('Across-group GP frequencies%s', freqUnits));
+    end
 end
     
 % Within-group GP timescale progress
@@ -134,6 +163,26 @@ for groupIdx = 1:numGroups
                  'linewidth', 1.5);
         end
         xlabel('# Iterations');
-        ylabel(sprintf('Within-group GP timescales, group %d%s', groupIdx, units))
+        ylabel(sprintf('Within-group GP timescales, group %d%s', groupIdx, timeUnits))
+    end
+end
+
+if isequal(res.estParams.covType, 'sg')
+    % Within-group GP center frequency progress
+    for groupIdx = 1:numGroups
+        % Don't try to plot anything for groups with 0 within-group latents
+        if xDim_within(groupIdx) > 0
+            plotIdx = plotIdx + 1;
+            subplot(1,numPlot,plotIdx);
+            Nus = cat(3, res.nus_within{groupIdx}{:});
+            hold on;
+            for i = 1:xDim_within(groupIdx)
+                plot(freqParam.*(0:length(res.nus_within{groupIdx})-1), ...
+                     squeeze(Nus(1,i,:))./binWidth, ...
+                     'linewidth', 1.5);
+            end
+            xlabel('# Iterations');
+            ylabel(sprintf('Within-group GP frequencies, group %d%s', groupIdx, freqUnits))
+        end
     end
 end

@@ -19,6 +19,8 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 %                  mat_results. (default: '.', i.e., current directory)
 %     verbose   -- logical; set true to print out which files are being
 %                  accessed (default: true)
+%     method    -- string; specifies which method was used for fitting:
+%                  'dlag' or 'dlag-freq' (default: 'dlag')
 % 
 % Outputs:
 %
@@ -130,6 +132,7 @@ function [res, bestModel] = getCrossValResults_dlag(runIdx,varargin)
 
 baseDir  = '.';
 verbose = true;
+method = 'dlag';
 assignopts(who, varargin);
 res = [];
 bestModel = [];
@@ -138,8 +141,10 @@ runDir = sprintf('%s/mat_results/run%03d', baseDir, runIdx);
 if ~isdir(runDir)
     fprintf('ERROR: %s does not exist.  Exiting...\n', runDir);
     return
-else
-    D = dir([runDir '/dlag*.mat']);
+elseif isequal(method, 'dlag')
+    D = dir([runDir '/dlag_nGroups*.mat']);
+elseif isequal(method, 'dlag-freq')
+    D = dir([runDir '/dlag-freq_nGroups*.mat']);
 end
 
 if isempty(D)

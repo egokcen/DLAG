@@ -42,6 +42,9 @@ function dlagEngine(seqTrain,seqTest,fname,varargin)
 %                     specified delay. Different groups can have different
 %                     delays. Entries in units of time (same as binWidth). 
 %                     (default: [])
+%     startNu      -- float; Initial GP center frequency (for spectral
+%                     Gaussian kernels only), in units of 1/time (same
+%                     time units as binWidth) (default: 1/(10*binWidth))
 %     rGroups      -- (1 x 2) array; Used to assess cross-validated
 %                     performance via pairwise regression. Each element
 %                     specifies a group to be included in the regression.
@@ -64,6 +67,8 @@ function dlagEngine(seqTrain,seqTest,fname,varargin)
 %                     currently supported:
 %                         'rbf' -- Radial basis function, or squared
 %                                  exponential kernel
+%                         'sg'  -- spectral Gaussian, or Gauss-cosine
+%                                  kernel
 %                     (default: 'rbf')
 %     parallelize  -- logical; Set to true to use Matlab's parfor construct
 %                     to parallelize each fold and latent dimensionality 
@@ -84,6 +89,7 @@ function dlagEngine(seqTrain,seqTest,fname,varargin)
 %     09 Jun 2020 -- Expanded metrics of generalization performance.
 %     27 Jun 2020 -- Included 0-dimensional models in performance
 %                    assessment. 'init_method' default changed to 'static'.
+%     19 Feb 2023 -- Added spectral Gaussian compatibility.
 
 xDim_across   = 3;
 xDim_within   = [];
@@ -93,6 +99,7 @@ binWidth      = 20;
 startTau      = 2*binWidth; 
 startEps      = 1e-3;
 startDelay    = [];  
+startNu       = 1/(10*binWidth);
 init_method   = 'static';
 covType       = 'rbf';
 parallelize   = false;
@@ -113,7 +120,7 @@ end
 startParams = initialize_dlag(seqTrainCut, init_method, ...
     'binWidth', binWidth, 'covType', covType, 'xDim_across', xDim_across, ...
     'xDim_within', xDim_within, 'startEps', startEps, 'startTau', startTau, ...
-    'yDims', yDims, 'rGroups', rGroups, 'startDelay', startDelay, ...
+    'startNu', startNu, 'yDims', yDims, 'rGroups', rGroups, 'startDelay', startDelay, ...
     'parallelize', parallelize, extraOpts{:});
 
 % =====================
@@ -123,7 +130,7 @@ if ~parallelize
       fprintf('\nFitting DLAG model...\n');
 end
 
-[estParams, seqTrainCut, LLcut, iterTime, D, gams_across, gams_within, err_status, msg] ...
+[estParams, seqTrainCut, LLcut, iterTime, D, gams_across, gams_within, nus_across, nus_within, err_status, msg] ...
     = em_dlag(startParams, seqTrainCut, ...
                   'parallelize', parallelize, extraOpts{:});
 
@@ -185,6 +192,6 @@ end
 % If previous model parameters were used for initialization, then startTau,
 % etc. are not relevant
 if isequal(init_method, 'params')
-    vars = vars(~ismember(vars, {'startTau', 'startEps', 'startDelay'}));
+    vars = vars(~ismember(vars, {'startTau', 'startEps', 'startDelay', 'startNu'}));
 end
 save(fname,vars{:});

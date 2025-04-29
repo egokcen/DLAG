@@ -6,7 +6,7 @@ function [K_big, K_big_inv, logdet_K_big] = make_K_big(params, T, varargin)
 %
 % INPUTS:
 %
-% params       - GPFA model parameters
+% params       - DLAG model parameters
 % T            - number of timesteps
 %
 % OUTPUTS:
@@ -18,8 +18,13 @@ function [K_big, K_big_inv, logdet_K_big] = make_K_big(params, T, varargin)
 % K_big_inv    - inverse of K_big
 % logdet_K_big - log determinant of K_big
 %
-% @ 2009 Byron Yu         byronyu@stanford.edu
-%        John Cunningham  jcunnin@stanford.edu
+% Author: 
+%     Evren Gokcen    egokcen@cmu.edu
+%     Modified from original code by Byron Yu and John Cunningham (2009).
+% 
+% Revision history:
+%     18 Feb 2023 -- Changed kernel options to squared exponential (rbf)
+%                    and spectral Gaussian (sg).
 
   xDim = size(params.C, 2);
   assignopts(who,varargin);
@@ -37,22 +42,10 @@ function [K_big, K_big_inv, logdet_K_big] = make_K_big(params, T, varargin)
         K = (1 - params.eps(i)) * ...
         exp(-params.gamma(i) / 2 * Tdif.^2) +...
         params.eps(i) * eye(T);
-      case 'tri'
-        K = max(1 - params.eps(i) - params.a(i) * abs(Tdif), 0) +...
+      case 'sg'
+        K = (1 - params.eps(i)) * ...
+        exp(-params.gamma(i) / 2 * Tdif.^2) .* cos(2*pi*params.nu(i) .* Tdif) + ...
         params.eps(i) * eye(T);
-      case 'logexp'
-        z = params.gamma *...
-        (1 - params.eps(i) - params.a(i) * abs(Tdif));
-        outUL = (z>36);
-        outLL = (z<-19);
-        inLim = ~outUL & ~outLL;
-        
-        hz        = nan(size(z));
-        hz(outUL) = z(outUL);
-        hz(outLL) = exp(z(outLL));
-        hz(inLim) = log(1 + exp(z(inLim)));
-        
-        K = hz / params.gamma + params.eps(i) * eye(T);
     end
     K_big(idx+i, idx+i)                 = K;
     [K_big_inv(idx+i, idx+i), logdet_K] = invToeplitz(K);

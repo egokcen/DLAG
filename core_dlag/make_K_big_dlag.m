@@ -18,6 +18,13 @@ function [K_big] = make_K_big_dlag(params,T)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -50,6 +57,7 @@ function [K_big] = make_K_big_dlag(params,T)
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
 %     07 Jan 2021 -- Fixed error with indexing into K_big that only arose
 %                    for numGroups > 2.
+%     18 Feb 2023 -- Added spectral Gaussian compatibility.
 
 % Initialize relevant variables
 xDim_across  = params.xDim_across;
@@ -65,6 +73,10 @@ params_across.DelayMatrix = params.DelayMatrix;
 params_across.gamma = params.gamma_across;
 params_across.eps = params.eps_across;
 params_across.covType = params.covType;
+switch params.covType
+    case 'sg'
+        params_across.nu = params.nu_across;     
+end
 K_big_across = make_K_big_plusDelays(params_across,T);
 
 % Construct K for within-group latents
@@ -77,6 +89,10 @@ for groupIdx = 1:numGroups
         params_within.gamma = params.gamma_within{groupIdx};
         params_within.eps = params.eps_within{groupIdx};
         params_within.C = params.C;
+        switch params.covType
+            case 'sg'
+                params_within.nu = params.nu_within{groupIdx};     
+        end
         % make_K_big is the same function as used for GPFA
         [K_big_within{groupIdx},~,~] = make_K_big(params_within,T,'xDim',xDim_within(groupIdx));
     end

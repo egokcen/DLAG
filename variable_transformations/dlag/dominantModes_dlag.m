@@ -53,7 +53,7 @@ function [S, U, V, H] = dominantModes_dlag(params, varargin)
 %          dominant modes (left singular vectors) for group i.
 %     V -- (1 x 2) cell array; V{i} -- (yDims(i) x xDim) array;
 %          right singular vectors for group i
-%     H -- (1 x 2) cell array; H{i} -- (yDims(i) x xDim_across) array;
+%     H -- (1 x 2) cell array; H{i} -- (xDim x xDim) array;
 %          Projection of latents onto dominant modes: 
 %          H{i} = U{i}'*C{i}
 %

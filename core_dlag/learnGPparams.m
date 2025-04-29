@@ -18,8 +18,13 @@ function res = learnGPparams(seq, params, varargin)
 % verbose     - logical that specifies whether to display status messages
 %               (default: false)
 %
-% @ 2009 Byron Yu         byronyu@stanford.edu
-%        John Cunningham  jcunnin@stanford.edu
+% Author: 
+%     Evren Gokcen    egokcen@cmu.edu
+%     Modified from original code by Byron Yu and John Cunningham (2009).
+% 
+% Revision history:
+%     19 Feb 2023 -- Changed kernel options to squared exponential (rbf)
+%                    and spectral Gaussian (sg).
 
   MAXITERS  = -10; % for minimize.m
   verbose   = false;
@@ -30,13 +35,10 @@ function res = learnGPparams(seq, params, varargin)
       % If there's more than one type of parameter, put them in the
       % second row of oldParams.
       oldParams = params.gamma;
-      fname     = 'grad_betgam';
-    case 'tri'
-      oldParams = params.a;
-      fname     = 'grad_trislope';
-    case 'logexp'
-      oldParams = params.a;
-      fname     = 'grad_logexpslope';
+      fname     = 'grad_rbf';
+    case 'sg'
+      oldParams = [params.gamma; params.nu];
+      fname     = 'grad_sg';
   end
   if params.notes.learnGPNoise
     oldParams = [oldParams; params.eps];
@@ -49,16 +51,21 @@ function res = learnGPparams(seq, params, varargin)
   % Loop once for each state dimension (each GP)
   for i = 1:xDim
     const = [];
-    switch params.covType
-      % No constants for 'rbf' or 'tri'
-      case 'logexp'
-        const.gamma = params.gamma;
-    end
     if ~params.notes.learnGPNoise  
       const.eps = params.eps(i);     
     end
 
-    initp = log(oldParams(:,i));
+    switch params.covType              
+        case 'rbf'
+            % Change of variables for constrained optimization
+            initp = log(oldParams(1,i));
+            
+        case 'sg'
+            % Change of variables for constrained optimization
+            init_gam = log(oldParams(1,i));
+            init_nu = oldParams(2,i);
+            initp = [init_gam; init_nu];
+    end
 
     % This does the heavy lifting
     [res_p, res_f, res_iters] =...
@@ -67,13 +74,12 @@ function res = learnGPparams(seq, params, varargin)
     switch params.covType
       case 'rbf'
         res.gamma(i) = exp(res_p(1));
-      case 'tri'
-        res.a(i)     = exp(res_p(1));
-      case 'logexp'
-        res.a(i)     = exp(res_p(1));
+      case 'sg'
+        res.gamma(i) = exp(res_p(1));
+        res.nu(i) = res_p(2);
     end    
     if params.notes.learnGPNoise  
-      res.eps(i) = exp(res_p(2));
+      res.eps(i) = exp(res_p(end));
     end
       
     if verbose

@@ -1,6 +1,6 @@
-function [f,df] = grad_betgam_delay(p,precomp,const)
+function [f,df] = grad_rbf_delay(p,precomp,const)
 %
-% [f, df] = grad_betgam_delay(p, precomp, const)  
+% [f, df] = grad_rbf_delay(p, precomp, const)  
 %
 % Description: Gradient computation for GP timescale and delay 
 %              optimization. This function is called by minimize.m.

@@ -45,8 +45,8 @@ function result = fit_dlag(runIdx, dat, varargin)
 %
 %     baseDir     -- string; specifies directory in which to store
 %                    mat_results. (default: '.', i.e., current directory)
-%     method      -- string; method to be used (currently one supported):
-%                    'dlag'. (default: 'dlag')
+%     method      -- string; method to be used: 'dlag' or 'dlag-freq'. 
+%                    (default: 'dlag')
 %     binWidth    -- float; bin width or sample period, in units of time
 %                    (e.g., ms) (default: 20)
 %     numFolds    -- int; number of cross-validation folds (default: 0).
@@ -105,8 +105,8 @@ function result = fit_dlag(runIdx, dat, varargin)
 %               
 %               fname       -- string; path to file where variables are 
 %                              stored
-%               method      -- string; method that was used (for now, just
-%                              'dlag')
+%               method      -- string; method that was used
+%                              'dlag' or 'dlag_freq')
 %               rngSettings -- structure with the random number generator 
 %                              settings used during run time. Includes 
 %                              fields 'Type', 'Seed', and 'State'.
@@ -135,8 +135,12 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                              the DelayMatrix DLAG parameter.) Entries in 
 %                              units of time. (not relevant if init_method 
 %                              is 'params')
+%               startNu     -- float; Initial GP center frequency (for 
+%                              spectral Gaussian kernels only), in units of
+%                              1/time (same time units as binWidth) 
+%                              (default: 1/(10*binWidth))
 %               covType     -- string; Type of GP covariance kernel used 
-%                              (e.g., 'rbf')
+%                              ('rbf' or 'sg')
 %               parallelize -- logical; indicates whether or not 
 %                              parallelization was used.
 %               saveData    -- logical; indicates whether or not train and 
@@ -156,6 +160,12 @@ function result = fit_dlag(runIdx, dat, varargin)
 %                              gams_within(i) -- (1 x numIters) cell array;
 %                              estimated gamma_within for group i after 
 %                              each EM iteration.
+%               nus_across -- (1 x numIters) cell arry; estimated nu_across 
+%                             after each EM iteration.
+%               nus_within -- (1 x numGroups) cell arry;
+%                             nu_within(i) -- (1 x numIters) cell array; 
+%                             estimated nu_within for group i after each 
+%                             EM iteration.
 %               err_status  -- int; 1 if data likelihood decreased during
 %                              fitting. 0 otherwise.
 %               msg         -- string; A message indicating why fitting was
@@ -232,6 +242,8 @@ function result = fit_dlag(runIdx, dat, varargin)
 %     20 Jun 2020 -- Added xDims_grid option.
 %     28 Jun 2020 -- Updated to handle the all-zero-dimension case.
 %     12 Mar 2021 -- Added 'fitAll' optional argument
+%     18 Jul 2023 -- Updated documentation with spectral Gaussian,
+%                    frequency domain fitting information.
 
 % Specify defaults for optional arguments
 baseDir              = '.';

@@ -23,6 +23,12 @@ function gp_params = getGPparams_dlag(params, binWidth)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -55,6 +61,11 @@ function gp_params = getGPparams_dlag(params, binWidth)
 %                               GP timescales for each group. tau_within(i)
 %                               is empty for groups with no within-group
 %                               latents.
+%                 if covType == 'sg'
+%                     nu_across -- (1 x xDim_across) array; center
+%                                  frequencies for spectral Gaussians
+%                     nu_within -- (1 x numGroups) cell array; 
+%                                  within-group center frequencies
 %                                     
 %
 % Authors:
@@ -63,6 +74,7 @@ function gp_params = getGPparams_dlag(params, binWidth)
 % Revision history:
 %     10 Apr 2020 -- Initial full revision.
 %     17 Apr 2020 -- Added 0-within-group dimension functionality
+%     18 Feb 2023 -- Added spectral Gaussian compatibility.
 
 numGroups = length(params.xDim_within);
 
@@ -71,10 +83,19 @@ gp_params.DelayMatrix = binWidth .* params.DelayMatrix;
 
 % Convert timescales to units of time
 gp_params.tau_across = binWidth ./ sqrt(params.gamma_across);
+
+switch params.covType
+    case 'sg'
+        gp_params.nu_across = params.nu_across ./ binWidth;     
+end
 gp_params.tau_within = cell(1,numGroups);
 for groupIdx = 1:numGroups
     % Leave tau_within empty for groups with no within-group latents
     if params.xDim_within(groupIdx) > 0
         gp_params.tau_within{groupIdx} = binWidth ./ sqrt(params.gamma_within{groupIdx});
+        switch params.covType
+            case 'sg'
+                gp_params.nu_within{groupIdx} = params.nu_within{groupIdx} ./ binWidth;     
+        end
     end
 end

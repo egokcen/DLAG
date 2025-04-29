@@ -1,9 +1,10 @@
-function dat = seq2pcca(seq, dims, varargin)
+function dat = seq2cell2D(seq, dims, varargin)
 %
-% dat = seq2pcca(seq, dims, ...) 
+% dat = seq2cell2D(seq, dims, ...) 
 %
-% Description: Convert data in sequence format to data matrices compatible
-%              with pCCA functions.
+% Description: Convert data in sequence format to a cell array of data 
+%              matrices. Each cell array entry corresponds to a group,
+%              and data is concatenated across trials.
 %
 % Arguments:
 %

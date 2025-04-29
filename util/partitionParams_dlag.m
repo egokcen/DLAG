@@ -19,6 +19,13 @@ function outparams = partitionParams_dlag(inparams)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -48,6 +55,7 @@ function outparams = partitionParams_dlag(inparams)
 % Revision history:
 %     16 May 2020 -- Initial full revision.
 %     28 Jun 2020 -- Updated for 0-across-group dimension compatibility.
+%     22 Feb 2023 -- Added spectral Gaussian compatibility.
 
 numGroups = length(inparams.yDims);
 
@@ -72,6 +80,10 @@ for groupIdx = 1:numGroups
     outparams{groupIdx}.eps_across = inparams.eps_across;
     outparams{groupIdx}.gamma_within = inparams.gamma_within(groupIdx);
     outparams{groupIdx}.eps_within = inparams.eps_within(groupIdx);
+    if isequal(outparams{groupIdx}.covType,'sg')
+        outparams{groupIdx}.nu_across = inparams.nu_across;
+        outparams{groupIdx}.nu_within = inparams.nu_within(groupIdx);
+    end
     
     % Observation model parameters require special indexing
     obsBlock = obs_block_idxs{groupIdx};

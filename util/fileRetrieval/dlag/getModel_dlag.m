@@ -23,6 +23,8 @@ function res = getModel_dlag(runIdx,xDim_across,xDim_within,varargin)
 %                     mat_results. (default: '.', i.e., current directory)
 %     cvf          -- int; cross-validation fold (0 means model fit to all
 %                     data) (default: 0)
+%     method       -- string; specifies which method was used for fitting:
+%                     'dlag' or 'dlag-freq' (default: 'dlag')
 % 
 % Outputs:
 %
@@ -37,11 +39,12 @@ function res = getModel_dlag(runIdx,xDim_across,xDim_within,varargin)
 
 baseDir  = '.';
 cvf = 0;
+method = 'dlag';
 assignopts(who, varargin);
 res = [];
 
 fname = generate_filename_dlag(runIdx, xDim_across, xDim_within, ...
-                               'baseDir', baseDir, 'cvf', cvf);
+                               'baseDir', baseDir, 'cvf', cvf, 'method', method);
 if ~isfile(fname)
     fprintf('ERROR: %s does not exist.  Exiting...\n', fname);
     return

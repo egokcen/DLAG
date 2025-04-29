@@ -22,6 +22,13 @@ function seq = generate_latents_dlag(params, T, N, varargin)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -62,10 +69,11 @@ function seq = generate_latents_dlag(params, T, N, varargin)
 % Revision history:
 %     09 Jan 2021 -- Initial full revision.
 %     19 Feb 2022 -- Grouped together trials of the same length.
+%     18 Feb 2023 -- Added spectral Gaussian compatibility.
 
 latentfield = 'xsm';
 verbose = false;
-extraOpts = assignopts(who, varargin);
+assignopts(who, varargin);
    
 % If T is a scalar, then give all sequences the same length
 if length(T) <= 1

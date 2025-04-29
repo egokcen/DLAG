@@ -127,7 +127,6 @@ LL = 0;
 % - Outer loop on each element of Tu.
 % - For each element of Tu, find all trials with that length.
 % - Do inference and LL computation for all those trials together.
-
 for j = 1:length(Tu)
     T = Tu(j);
     

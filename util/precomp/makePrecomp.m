@@ -52,7 +52,7 @@ function precomp = makePrecomp( seq , xDim )
   % this is computationally cheap, so we keep a few loops in MATLAB
   % for ease of readability.
   for i = 1:xDim
-    precomp(i).absDif = abs(Tdif);
+    precomp(i).dif = abs(Tdif);
     precomp(i).difSq  = Tdif.^2;
     precomp(i).Tall   = Tall;
   end

@@ -1,5 +1,6 @@
 # matlab backup files
 *.m~
+*.asv
 
 # results files
 mat_results/

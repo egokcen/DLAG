@@ -1,6 +1,6 @@
-function [f, df] = grad_betgam(p, precomp, const)
+function [f, df] = grad_rbf(p, precomp, const)
 %
-% [f, df] = grad_betgam(p, precomp, const)  
+% [f, df] = grad_rbf(p, precomp, const)  
 %
 % Gradient computation for GP timescale optimization.
 % This function is called by minimize.m.
@@ -16,8 +16,9 @@ function [f, df] = grad_betgam(p, precomp, const)
 % f           - value of objective function E[log P({x},{y})] at p
 % df          - gradient at p    
 %
-% @ 2009 Byron Yu         byronyu@stanford.edu
-%        John Cunningham  jcunnin@stanford.edu
+% Author: 
+%     Evren Gokcen    egokcen@cmu.edu
+%     Modified from original code by Byron Yu and John Cunningham (2009).
   
   Tall = precomp.Tall;
   Tmax = max(Tall);

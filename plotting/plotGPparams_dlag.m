@@ -21,6 +21,13 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %                                    GP timescales for each group
 %                    eps_within   -- (1 x numGroups) cell array;
 %                                    GP noise variances for each group
+%                    if covType == 'sg'
+%                        nu_across -- (1 x xDim_across) array; center
+%                                     frequencies for spectral Gaussians;
+%                                     convert to 1/time via 
+%                                     nu_across./binWidth 
+%                        nu_within -- (1 x numGroups) cell array; 
+%                                     center frequencies for each group
 %                    d            -- (yDim x 1) array; observation mean
 %                    C            -- (yDim x (numGroups*xDim)) array;
 %                                    mapping between low- and high-d spaces
@@ -82,6 +89,7 @@ function gp_params = plotGPparams_dlag(params,binWidth,rGroups,varargin)
 %     28 Sep 2020 -- Added option to shade latents according to prominence.
 %     24 Jul 2021 -- Changed shading to represent binary delay
 %                    signfiicance. Removed prominence everywhere.
+%     19 Feb 2022 -- Added spectral Gaussian compatibility.
 
 % Set optional arguments
 plotAcross = true;
@@ -107,8 +115,11 @@ if xDim_across > 0
            - gp_params.DelayMatrix(rGroups(1),:);
 
     % Figure out plot limits
-    maxDelay = max(delays);
-    minDelay = min(delays);
+    maxDelay = max(abs(delays));
+    if maxDelay <= 0
+        maxDelay = 1;
+    end
+    minDelay = -maxDelay;
 end
 
 all_tau = [gp_params.tau_across gp_params.tau_within{:}];
@@ -127,63 +138,170 @@ plotIdx = 0;
 
 % Format units for axis labels
 if ~isempty(units)
-    units = sprintf(' (%s)', units); 
+    timeUnits = sprintf(' (%s)', units); 
+    freqUnits = sprintf(' (1/%s)', units);
 end
 
-% Across-group GP params
-if plotAcross && (xDim_across > 0)
-    plotIdx = plotIdx + 1;
-    subplot(1,numPlot,plotIdx);
-    hold on;
-    xlabel(sprintf('Delay from area %d to area %d%s',rGroups(1),rGroups(2),units));
-    ylabel(sprintf('Across-group GP timescale%s', units));
-    xlim([minDelay-10,maxDelay+10]);
-    ylim([0,maxTau+10]);
-    line([0 0], [0 maxTau+10], ...
-         'Color', colors.grays{6}, ...
-         'linestyle', '--', ...
-         'linewidth', 1.5);
-    if isempty(sig)
-        plot(delays, gp_params.tau_across, ...
-             'marker', '.', ...
-             'linestyle', 'none', ...
-             'color', colors.grays{1}, ...
-             'markersize', pointsize);
-    else
-        % Shade latents according to statistical signficance.
-        sigIdxs = find(sig < alpha);
-        nsigIdxs = find(sig >= alpha);
-        h1 = plot(delays(sigIdxs), gp_params.tau_across(sigIdxs), ...
-                  'marker', '.', ...
-                  'linestyle', 'none', ...
-                  'color', colors.grays{1}, ...
-                  'markersize', pointsize);
-        h2 = plot(delays(nsigIdxs), gp_params.tau_across(nsigIdxs), ...
-                  'marker', '.', ...
-                  'linestyle', 'none', ...
-                  'color', colors.grays{6}, ...
-                  'markersize', pointsize);
-        legend([h1 h2], {'Non-zero delays', 'Ambiguous delays'}, 'location', 'northoutside');
-    end
-    hold off;
-end
+switch params.covType
+    
+    case 'rbf'
 
-% Within-group GP timescales
-if plotWithin
-    for groupIdx = 1:numGroups
-        % Don't try to plot anything for groups with 0 within-group latents
-        if xDim_within(groupIdx) > 0
+        % Across-group GP params
+        if plotAcross && (xDim_across > 0)
             plotIdx = plotIdx + 1;
             subplot(1,numPlot,plotIdx);
             hold on;
-            xlim([0,xDim_within(groupIdx)+1]); 
+            xlabel(sprintf('Delay from area %d to area %d%s',rGroups(1),rGroups(2),timeUnits));
+            ylabel(sprintf('Across-group GP timescale%s', timeUnits));
+            xlim([minDelay-10,maxDelay+10]);
             ylim([0,maxTau+10]);
-            h = bar([1:xDim_within(groupIdx)],gp_params.tau_within{groupIdx},0.4);    
-            set(h,'facecolor',colors.grays{1},'edgecolor',colors.grays{1});
-            ylabel(sprintf('GP timescale%s', units));
-            set(gca,'XTick',1:xDim_within(groupIdx));
-            xlabel(sprintf('Within-group latents, group %d', groupIdx)); 
+            line([0 0], [0 maxTau+10], ...
+                 'Color', colors.grays{6}, ...
+                 'linestyle', '--', ...
+                 'linewidth', 1.5);
+            if isempty(sig)
+                plot(delays, gp_params.tau_across, ...
+                     'marker', '.', ...
+                     'linestyle', 'none', ...
+                     'color', colors.grays{1}, ...
+                     'markersize', pointsize);
+            else
+                % Shade latents according to statistical signficance.
+                sigIdxs = find(sig < alpha);
+                nsigIdxs = find(sig >= alpha);
+                h1 = plot(delays(sigIdxs), gp_params.tau_across(sigIdxs), ...
+                          'marker', '.', ...
+                          'linestyle', 'none', ...
+                          'color', colors.grays{1}, ...
+                          'markersize', pointsize);
+                h2 = plot(delays(nsigIdxs), gp_params.tau_across(nsigIdxs), ...
+                          'marker', '.', ...
+                          'linestyle', 'none', ...
+                          'color', colors.grays{6}, ...
+                          'markersize', pointsize);
+                legend([h1 h2], {'Non-zero delays', 'Ambiguous delays'}, 'location', 'northoutside');
+            end
             hold off;
         end
-    end
+
+        % Within-group GP timescales
+        if plotWithin
+            for groupIdx = 1:numGroups
+                % Don't try to plot anything for groups with 0 within-group latents
+                if xDim_within(groupIdx) > 0
+                    plotIdx = plotIdx + 1;
+                    subplot(1,numPlot,plotIdx);
+                    hold on;
+                    xlim([0,xDim_within(groupIdx)+1]); 
+                    ylim([0,maxTau+10]);
+                    h = bar([1:xDim_within(groupIdx)],gp_params.tau_within{groupIdx},0.4);    
+                    set(h,'facecolor',colors.grays{1},'edgecolor',colors.grays{1});
+                    ylabel(sprintf('GP timescale%s', timeUnits));
+                    set(gca,'XTick',1:xDim_within(groupIdx));
+                    xlabel(sprintf('Within-group latents, group %d', groupIdx)); 
+                    hold off;
+                end
+            end
+        end
+        
+    case 'sg'
+        
+        nyqFreq = 0.5/binWidth; % Maximum samplable frequency without aliasing
+        
+        % Across-group GP params
+        if plotAcross && (xDim_across > 0)
+            maxY = max(gp_params.nu_across + 2./(2*pi*gp_params.tau_across));
+            maxY = max([maxY nyqFreq]);
+            minY = min(gp_params.nu_across - 2./(2*pi*gp_params.tau_across));
+            plotIdx = plotIdx + 1;
+            subplot(1,numPlot,plotIdx);
+            hold on;
+            xlabel(sprintf('Delay from area %d to area %d%s',rGroups(1),rGroups(2),timeUnits));
+            ylabel(sprintf('Across-group GP frequencies%s', freqUnits));
+            xlim([minDelay,maxDelay]);
+            ylim([minY maxY]) ;
+            line([0 0], [minY maxY], ...
+                 'Color', colors.grays{6}, ...
+                 'linestyle', '--', ...
+                 'linewidth', 1.5);
+            line([minDelay,maxDelay], [nyqFreq nyqFreq], ...
+                 'Color', colors.reds{6}, ...
+                 'linestyle', '--', ...
+                 'linewidth', 1.5);
+            if isempty(sig)
+                errorbar(delays, gp_params.nu_across, 2./(2*pi*gp_params.tau_across), ...
+                         'marker', 'none', ...
+                         'linestyle', 'none', ...
+                         'linewidth', 1.5, ...
+                         'color', colors.grays{1});
+                plot(delays, gp_params.nu_across, ...
+                     'marker', '.', ...
+                     'linestyle', 'none', ...
+                     'color', colors.grays{1}, ...
+                     'markersize', pointsize);
+            else
+                % Shade latents according to statistical signficance.
+                sigIdxs = find(sig < alpha);
+                nsigIdxs = find(sig >= alpha);
+                errorbar(delays(sigIdxs), gp_params.nu_across(sigIdxs), 2./(2*pi*gp_params.tau_across(sigIdxs)), ...
+                         'marker', 'none', ...
+                         'linestyle', 'none', ...
+                         'linewidth', 1.5, ...
+                         'color', colors.grays{1});
+                errorbar(delays(nsigIdxs), gp_params.nu_across(nsigIdxs), 2./(2*pi*gp_params.tau_across(nsigIdxs)), ...
+                         'marker', 'none', ...
+                         'linestyle', 'none', ...
+                         'linewidth', 1.5, ...
+                         'color', colors.grays{6});
+                h1 = plot(delays(sigIdxs), gp_params.nu_across(sigIdxs), ...
+                          'marker', '.', ...
+                          'linestyle', 'none', ...
+                          'color', colors.grays{1}, ...
+                          'markersize', pointsize);
+                h2 = plot(delays(nsigIdxs), gp_params.nu_across(nsigIdxs), ...
+                          'marker', '.', ...
+                          'linestyle', 'none', ...
+                          'color', colors.grays{6}, ...
+                          'markersize', pointsize);
+                legend([h1 h2], {'Non-zero delays', 'Ambiguous delays'}, 'location', 'northoutside');
+            end
+            hold off;
+        end
+
+        % Within-group GP timescales
+        if plotWithin
+            for groupIdx = 1:numGroups
+                % Don't try to plot anything for groups with 0 within-group latents
+                if xDim_within(groupIdx) > 0
+                    maxY = max(gp_params.nu_within{groupIdx} + 2./(2*pi*gp_params.tau_within{groupIdx}));
+                    maxY = max([maxY nyqFreq]);
+                    minY = min(gp_params.nu_within{groupIdx} - 2./(2*pi*gp_params.tau_within{groupIdx}));
+                    plotIdx = plotIdx + 1;
+                    subplot(1,numPlot,plotIdx);
+                    hold on;
+                    xlim([0,xDim_within(groupIdx)+1]); 
+                    ylim([minY maxY]);
+                    line([-10,+10], [nyqFreq nyqFreq], ...
+                         'Color', colors.reds{6}, ...
+                         'linestyle', '--', ...
+                         'linewidth', 1.5);
+                    errorbar(1:xDim_within(groupIdx), gp_params.nu_within{groupIdx}, ...
+                             2./(2*pi*gp_params.tau_within{groupIdx}), ...
+                             'marker', 'none', ...
+                             'linestyle', 'none', ...
+                             'linewidth', 1.5, ...
+                             'color', colors.grays{1});
+                    plot(1:xDim_within(groupIdx),gp_params.nu_within{groupIdx}, ...
+                         'marker', '.', ...
+                         'linestyle', 'none', ...
+                         'color', colors.grays{1}, ...
+                         'markersize', pointsize);
+                    ylabel(sprintf('GP frequency%s', freqUnits));
+                    set(gca,'XTick',1:xDim_within(groupIdx));
+                    xlabel(sprintf('Within-group latents, group %d', groupIdx)); 
+                    hold off;
+                end
+            end
+        end
+
 end

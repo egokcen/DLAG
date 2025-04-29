@@ -22,6 +22,8 @@ function fname = generate_filename_dlag(runIdx, xDim_across, xDim_within, vararg
 %                     mat_results. (default: '.', i.e., current directory)
 %     cvf          -- int; cross-validation fold (0 means model fit to all
 %                     data) (default: 0)
+%     method       -- string; specifies which method was used for fitting:
+%                     'dlag' or 'dlag_freq' (default: 'dlag_freq')
 % 
 % Outputs:
 %     fname -- string; path to results file
@@ -34,8 +36,8 @@ function fname = generate_filename_dlag(runIdx, xDim_across, xDim_within, vararg
 
 baseDir  = '.';
 cvf = 0;
-assignopts(who, varargin);
 method = 'dlag';
+assignopts(who, varargin);
 numGroups = length(xDim_within);
 runDir = sprintf('%s/mat_results/run%03d', baseDir, runIdx);
 fname = sprintf('%s/%s_nGroups%02d_xDimA%02d_xDimW', ...

@@ -55,7 +55,7 @@ yDim          = size(seqTrain(1).y,1);
 % Reformat train data for fitting. Trial ID and location in time do not 
 % matter. Static methods treat all data points as independent and 
 % identically distributed.
-Ytrain = seq2pcca(seqTrain, yDim, 'datafield', 'y'); % Reusing pCCA code
+Ytrain = seq2cell2D(seqTrain, yDim, 'datafield', 'y'); % Reusing pCCA code
 Ytrain = Ytrain{1};
 
 % =====================
@@ -87,7 +87,7 @@ end
 % ==================================
 if ~isempty(seqTest)
     % Reformat test data, as was done for train data
-    Ytest = seq2pcca(seqTest, yDim, 'datafield', 'y'); % Reusing pCCA code
+    Ytest = seq2cell2D(seqTest, yDim, 'datafield', 'y'); % Reusing pCCA code
     Ytest = Ytest{1};
     
     if xDim == 0

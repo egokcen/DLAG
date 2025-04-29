@@ -1,6 +1,6 @@
-% =========
-% FA DEMO
-% =========
+% =====================================================
+% FA DEMO: Run this script from the main DLAG directory
+% =====================================================
 %
 % This demo shows how we can use FA to study multi-population data. It's 
 % recommended to run this script section-by-section, rather than all at 
@@ -24,20 +24,20 @@
 %     Evren Gokcen    egokcen@cmu.edu
 %
 % Last Revised:
-%     14 Apr 2021
+%     13 Nov 2024
 
-%% ==================
+%% =================
 % 0a) Load demo data
-% ======================
+% ==================
 
-% Synthetic data generated from a pCCA model
-dat_file = 'mat_sample/dlag_demo_data_synthetic';
+% Synthetic data generated from a DLAG model
+dat_file = 'demo/data/dlag_demo_data';
 fprintf('Reading from %s \n',dat_file);
 load(dat_file);
 
-%% =======================
+%% =========================
 % 0b) Set up parallelization
-% ===========================
+% ==========================
 
 % If parallelize is true, all cross-validation folds will be analyzed in 
 % parallel using Matlab's parfor construct. If you have access to multiple 
@@ -47,13 +47,13 @@ numWorkers = 2;      % Adjust this to your computer's specs
 
 %% =====================
 % 1a) Fitting a FA model
-% ========================
+% ======================
 
 % Let's explicitly define all of the optional arguments, for
 % the sake of demonstration:
 runIdx = 5;           % Results will be saved in baseDir/mat_results/runXXX/, where
                       % XXX is runIdx. Use a new runIdx for each dataset.
-baseDir = '.';        % Base directory where results will be saved
+baseDir = './demo';   % Base directory where results will be saved
 overwriteExisting = true; % Control whether existing results files are overwritten
 saveData = false;     % Set to true to save train and test data (not recommended)
 binWidth = 20;        % Sample period / spike count bin width, in units of time (e.g., ms)
@@ -76,12 +76,12 @@ fit_fa(runIdx, seqTrue, ...
        'overwriteExisting', overwriteExisting, ...
        'saveData', saveData);
 
-%% =====================================
+%% ========================================
 % 1b) Explore extracted latent trajectories
-% ==========================================
+% =========================================
 
 % Convert data in seq format to format compatible with FA functions
-seq_static = seq2pcca(seqTrue, yDims, 'datafield', 'y'); % Borrowing code from pCCA pack
+seq_static = seq2cell2D(seqTrue, yDims, 'datafield', 'y');
 
 for groupIdx = 1:numGroups
     % Retrieve the fitted model of interest
@@ -121,7 +121,7 @@ end
 
 %% ==========================
 % 2) Cross-validate FA models
-%  =============================
+%  ==========================
 
 % Change other input arguments as appropriate
 runIdx = 6;
