@@ -33,10 +33,10 @@ For proper attribution, please cite this reference and [this codepack](CITATION.
 you use any portion of this code in your own work.
 
 This project now also includes a frequency domain approach to dramatically accelerate
-the fitting of DLAG models, based on the following paper:
+the fitting of DLAG models, based on the following [paper](https://doi.org/10.1162/neco.a.22):
 
 - Gokcen, E., Jasper, A. I., Kohn, A., Machens, C. K., & Yu, B. M.
-  Fast multi-group Gaussian process factor models. _Neural Computation_ (2025).
+  Fast multigroup Gaussian process factor models. _Neural Computation_, 37, 1709-1782 (2025).
 
 Please cite this reference if you use the frequency domain functionality of this project
 in your own work.
